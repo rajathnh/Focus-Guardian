@@ -124,7 +124,7 @@ Only return the JSON object. Do not explain your reasoning.
                     { type: "image_url", image_url: { url: combinedImageUri } },
                 ],
             }],
-            model: "llama-3.2-11b-vision-preview", // Ensure this is the correct, working vision model
+            model: "meta-llama/llama-4-scout-17b-16e-instruct", // Ensure this is the correct, working vision model
             response_format: { type: "json_object" }, // Enforce JSON output
             temperature: 0.2, // Low temp for consistent JSON
             max_completion_tokens: 150,
