@@ -87,16 +87,28 @@ exports.processSessionData = async (req, res) => {
         // 4. Prepare for Groq Call (Rate limit passed OR first call)
         // Ensure prompt clearly describes the expected input and output
         const prompt = `
-          You are analyzing a composite image showing a user.
-  - The LEFT HALF is the user's webcam view.
-  - The RIGHT HALF is their computer screen.
+          You are analyzing a composite image showing a user’s webcam view (LEFT) and their computer screen (RIGHT). You are an expert in productivity monitoring and visual context recognition.
 
-  Based on this combined image, provide a JSON response with:
-  1. 'focus' (boolean): Determine if the user is focused. Consider BOTH the webcam view (gaze direction, posture - are they looking AT the screen content shown?) AND the application on the screen (is it typically a work/focus app?). TRUE only if both webcam suggests looking at screen AND screen shows a potentially productive task. FALSE if gaze is away OR screen is clear entertainment/distraction.
-  2. 'appName' (string): Identify the primary application/website on the RIGHT HALF (screen). Examples: "VS Code", "Twitter", "Google Docs", "YouTube", "Slack", "Unknown". Be specific if possible (e.g., "Browser - Twitter.com"). If unsure, use "Unknown".
-  3. 'activity' (string): Describe the likely activity based on BOTH views. Examples: "coding", "social media", "writing document", "watching video", "communicating", "idle", "distracted", "away".
+The RIGHT HALF shows a real-time screen capture. 
+- Do NOT infer based on tabs or titles. 
+- Use the visible main content only: app UI, text layout, buttons, and overall structure.
 
-  Respond ONLY with the valid JSON object. Example: {"focus": false, "appName": "Browser - Twitter.com", "activity": "social media"}
+The LEFT HALF shows the user’s webcam.
+- Use facial orientation, gaze, posture to judge focus.
+
+Important context: Some tools like ChatGPT or code assistants may have minimalist UIs but can still indicate deep focus, especially when the content includes technical language, coding examples, or structured writing.
+
+Return a strict JSON object with:
+
+1. "focus" (boolean): TRUE only if webcam gaze is toward screen AND the screen shows a work-related app/tool.
+2. "appName" (string): Best guess of the tool or platform in use, based ONLY on visible screen content. Use names like "ChatGPT", "online IDE", "Notion", "Docs", "YouTube", etc. If unclear, return "Unknown".
+3. "activity" (string): High-level guess of the user’s activity. Examples: "coding", "writing", "research", "watching video", "social media", "idle", "away", "distracted".
+
+Example output:
+{"focus": true, "appName": "ChatGPT", "activity": "coding"}
+
+Only return the JSON object. Do not explain your reasoning.
+
 `;
 
         console.log(`Backend Rate Limit PASSED for session ${sessionId}. Sending request to Groq...`);

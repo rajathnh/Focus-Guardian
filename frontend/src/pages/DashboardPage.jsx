@@ -13,11 +13,11 @@ const createAuthAxios = () => {
 
 // --- Constants (Keep as before) ---
 const ANALYSIS_INTERVAL_MS = 120 * 1000;
-const CANVAS_WIDTH = 640;
-const CANVAS_HEIGHT = 360;
-const WEBCAM_DRAW_WIDTH = CANVAS_WIDTH / 2;
-const SCREEN_DRAW_WIDTH = CANVAS_WIDTH / 2;
-
+const CANVAS_WIDTH = 3200;
+const CANVAS_HEIGHT = 1280;
+const WEBCAM_DRAW_WIDTH = 1280;
+const SCREEN_DRAW_WIDTH = 1920;
+const NODE_ENV = "development"
 
 function DashboardPage() {
   const navigate = useNavigate();
@@ -88,7 +88,16 @@ function DashboardPage() {
     const webcamStreamRef = useRef(null);
     const screenStreamRef = useRef(null);
 
-
+    const downloadDataUri = (uri, filename) => {
+      const link = document.createElement('a');
+      link.href = uri;
+      link.download = filename;
+      // Append to body to ensure click works reliably, especially in Firefox
+      document.body.appendChild(link);
+      link.click();
+      // Clean up
+      document.body.removeChild(link);
+    };
 // src/pages/DashboardPage.jsx
 
   // --- Capture and Send Function ---
@@ -127,8 +136,22 @@ function DashboardPage() {
         ctx.drawImage(screenVideoRef.current, WEBCAM_DRAW_WIDTH, 0, SCREEN_DRAW_WIDTH, CANVAS_HEIGHT);
 
         // Generate Data URI
-        const combinedImageUri = canvas.toDataURL('image/jpeg', 0.7); // Or image/png
-
+        const imageFormatToUse = 'image/jpeg'; // Or 'image/png'
+        const quality = 0.8; // Adjust quality for JPEG
+        const combinedImageUri = canvas.toDataURL(imageFormatToUse, quality);
+        if (NODE_ENV === 'development') { // Only run in development mode
+          console.log("DEBUG: Preparing to save image locally...");
+          try {
+              const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+              // Determine file extension based on format used
+              const extension = imageFormatToUse.split('/')[1]; // 'jpeg' or 'png'
+              const filename = `focus_capture_${timestamp}.${extension}`;
+              downloadDataUri(combinedImageUri, filename);
+              console.log(`DEBUG: Triggered download: ${filename}`);
+          } catch (saveError) {
+              console.error("DEBUG: Error triggering local image download:", saveError);
+          }
+        }
         console.log(`Sending combined image to backend (Session: ${activeSession._id})...`);
 
         // 4. Make the API call
