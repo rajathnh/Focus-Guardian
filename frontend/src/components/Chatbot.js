@@ -27,6 +27,7 @@ const styles = {
         display: 'inline-block', // Wrap content
         float: 'right', // Align right
         clear: 'both', // Prevent overlap
+        whiteSpace: 'pre-wrap',
     },
     messageBubbleBot: {
         textAlign: 'left',
@@ -37,6 +38,8 @@ const styles = {
         display: 'inline-block', // Wrap content
         float: 'left', // Align left
         clear: 'both', // Prevent overlap
+        whiteSpace: 'pre-wrap',
+        
     },
     inputArea: {
         display: 'flex',
