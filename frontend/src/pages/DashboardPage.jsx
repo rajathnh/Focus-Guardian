@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
+import Chatbot from '../components/Chatbot'; // <-- Chatbot component is imported here
 
 // --- Axios Helper ---
 const createAuthAxiosInstance = () => {
@@ -254,88 +255,87 @@ function DashboardPage() {
 
 
     // --- Effect 1: Initial Load (User + Current Session) ---
-    // --- Effect 1: Initial Load (User + Current Session) ---
-useEffect(() => {
-    console.log("Running Effect: Initial Load");
-    let isMounted = true;
-    setLoadingInitial(true); // Start loading
-    setError(null); // Clear previous errors on load
+    useEffect(() => {
+        console.log("Running Effect: Initial Load");
+        let isMounted = true;
+        setLoadingInitial(true); // Start loading
+        setError(null); // Clear previous errors on load
 
-    const loadInitialData = async () => {
-        const token = localStorage.getItem('focusGuardianToken');
-        if (!token) { console.log("InitialLoad: No token"); if(isMounted) handleLogout(); return; }
+        const loadInitialData = async () => {
+            const token = localStorage.getItem('focusGuardianToken');
+            if (!token) { console.log("InitialLoad: No token"); if(isMounted) handleLogout(); return; }
 
-        // Ensure auth header is set before requests
-        if (!authAxios.defaults.headers.common['Authorization']) {
-            authAxios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        }
-
-        try {
-            console.log("InitialLoad: Fetching user profile...");
-            const userProfilePromise = authAxios.get('/api/users/profile');
-            console.log("InitialLoad: Fetching current session...");
-            // Use .catch on the session promise individually to handle the expected 404
-            const currentSessionPromise = authAxios.get('/api/sessions/current')
-                .catch(sessionError => {
-                    // If the error is specifically a 404 for the session, resolve with null
-                    if (sessionError.response?.status === 404) {
-                        console.log("InitialLoad: No active session found (404 received).");
-                        return { data: null }; // Mimic successful response with no data
-                    }
-                    // Otherwise, re-throw the error to be caught by the outer catch
-                    throw sessionError;
-                });
-
-            // Wait for both promises (session promise now resolves with {data: null} on 404)
-            const [userResponse, sessionResponse] = await Promise.all([userProfilePromise, currentSessionPromise]);
-
-            if (!isMounted) return;
-
-            // Set User
-            setUser(userResponse.data);
-            console.log("InitialLoad: Profile loaded.");
-
-            // Set Session (sessionResponse.data will be null if 404 occurred)
-            if (sessionResponse.data) {
-                console.log("InitialLoad: Found active session:", sessionResponse.data._id);
-                setActiveSession(sessionResponse.data);
-                isSessionRunningRef.current = true;
-                // Inform user streams might need restarting after refresh
-                // Setting streamsActive to false ensures capture interval doesn't start automatically
-                setStreamsActive(false);
-                setError("Active session found from previous load. Streams may need restarting.");
-            } else {
-                // This block now runs if session was null OR if 404 occurred
-                setActiveSession(null);
-                isSessionRunningRef.current = false;
-                setStreamsActive(false);
+            // Ensure auth header is set before requests
+            if (!authAxios.defaults.headers.common['Authorization']) {
+                authAxios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             }
-            // Clear general error if we reached here successfully (even if session was 404)
-            // setError(null); // Might still want to keep the "Streams may need restarting" message
 
-        } catch (err) {
-             // This outer catch now handles errors from userProfilePromise OR non-404 errors from sessionPromise
-             console.error("Error during initial load (Outer Catch):", err);
-             if (!isMounted) return;
-             if (err.response?.status === 401) {
-                 handleLogout();
-             } else {
-                 // Show a general error, potentially try loading user profile again
-                 setError(`Could not load dashboard data: ${err.message}`);
-                 try {
-                     const userResponse = await authAxios.get('/api/users/profile');
-                     if (isMounted) setUser(userResponse.data);
-                 } catch (userErr) { /* ... handle profile error or logout ... */ }
-             }
-        } finally {
-            if (isMounted) setLoadingInitial(false); // Stop loading
-        }
-    };
+            try {
+                console.log("InitialLoad: Fetching user profile...");
+                const userProfilePromise = authAxios.get('/api/users/profile');
+                console.log("InitialLoad: Fetching current session...");
+                // Use .catch on the session promise individually to handle the expected 404
+                const currentSessionPromise = authAxios.get('/api/sessions/current')
+                    .catch(sessionError => {
+                        // If the error is specifically a 404 for the session, resolve with null
+                        if (sessionError.response?.status === 404) {
+                            console.log("InitialLoad: No active session found (404 received).");
+                            return { data: null }; // Mimic successful response with no data
+                        }
+                        // Otherwise, re-throw the error to be caught by the outer catch
+                        throw sessionError;
+                    });
 
-    loadInitialData();
+                // Wait for both promises (session promise now resolves with {data: null} on 404)
+                const [userResponse, sessionResponse] = await Promise.all([userProfilePromise, currentSessionPromise]);
 
-    return () => { isMounted = false; console.log("Initial Load Effect Cleanup"); };
-}, [handleLogout]); // Dependency only on stable handleLogout
+                if (!isMounted) return;
+
+                // Set User
+                setUser(userResponse.data);
+                console.log("InitialLoad: Profile loaded.");
+
+                // Set Session (sessionResponse.data will be null if 404 occurred)
+                if (sessionResponse.data) {
+                    console.log("InitialLoad: Found active session:", sessionResponse.data._id);
+                    setActiveSession(sessionResponse.data);
+                    isSessionRunningRef.current = true;
+                    // Inform user streams might need restarting after refresh
+                    // Setting streamsActive to false ensures capture interval doesn't start automatically
+                    setStreamsActive(false);
+                    setError("Active session found from previous load. Streams may need restarting.");
+                } else {
+                    // This block now runs if session was null OR if 404 occurred
+                    setActiveSession(null);
+                    isSessionRunningRef.current = false;
+                    setStreamsActive(false);
+                }
+                // Clear general error if we reached here successfully (even if session was 404)
+                // setError(null); // Might still want to keep the "Streams may need restarting" message
+
+            } catch (err) {
+                 // This outer catch now handles errors from userProfilePromise OR non-404 errors from sessionPromise
+                 console.error("Error during initial load (Outer Catch):", err);
+                 if (!isMounted) return;
+                 if (err.response?.status === 401) {
+                     handleLogout();
+                 } else {
+                     // Show a general error, potentially try loading user profile again
+                     setError(`Could not load dashboard data: ${err.message}`);
+                     try {
+                         const userResponse = await authAxios.get('/api/users/profile');
+                         if (isMounted) setUser(userResponse.data);
+                     } catch (userErr) { /* ... handle profile error or logout ... */ }
+                 }
+            } finally {
+                if (isMounted) setLoadingInitial(false); // Stop loading
+            }
+        };
+
+        loadInitialData();
+
+        return () => { isMounted = false; console.log("Initial Load Effect Cleanup"); };
+    }, [handleLogout]); // Dependency only on stable handleLogout
 
 
    // --- Effect 2: Capture Interval ---
@@ -540,8 +540,21 @@ useEffect(() => {
                ) : (
                     <p>Waiting for first analysis data...</p>
                )}
-             </div>
-         )}
+             </div> // Closing div for the analysis inner content wrapper
+         )} 
+
+
+         {/* ===================================== */}
+         {/* ====== CHATBOT SECTION ADDED HERE ====== */}
+         {/* ===================================== */}
+         <hr style={{ margin: '25px 0' }} /> {/* Optional visual separator */}
+         <div style={{ border: '1px solid #eee', padding: '15px', marginTop: '20px', borderRadius: '8px', backgroundColor: '#f8f9fa' }}>
+            <h2 style={{ marginTop: 0 }}>Chat Assistant</h2>
+            <Chatbot /> {/* <-- Use the imported component */}
+         </div>
+         {/* ===================================== */}
+         {/* ====== END OF CHATBOT SECTION ======= */}
+         {/* ===================================== */}
 
 
          {/* Stats/History Link */}

@@ -20,9 +20,11 @@ mongoose.connect(process.env.MONGO_URI, {
 // Routes (to be created later)
 const userRoutes = require("./routes/userRoutes");
 const sessionRoutes = require("./routes/sessionRoutes");
+const chatRoutes = require('./routes/chatRoutes');
 
 app.use("/api/users", userRoutes);
 app.use("/api/sessions", sessionRoutes);
+app.use('/api/chat', chatRoutes); 
 
 // Start Server
 const PORT = process.env.PORT || 5000;
