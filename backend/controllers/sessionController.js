@@ -10,8 +10,8 @@ const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY,
 });
 
-const ANALYSIS_INTERVAL_SECONDS = 120; // How often frontend sends data (used for calculating time deltas)
-const MIN_SECONDS_BETWEEN_CALLS = 120; 
+const ANALYSIS_INTERVAL_SECONDS = 100; // How often frontend sends data (used for calculating time deltas)
+const MIN_SECONDS_BETWEEN_CALLS = 100; 
 const MIN_MS_BETWEEN_CALLS = MIN_SECONDS_BETWEEN_CALLS * 1000;
 // @desc    Start a new session
 // @route   POST /api/sessions/start
