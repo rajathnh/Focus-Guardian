@@ -1,6 +1,8 @@
 const Groq = require('groq-sdk'); // 1. Import Groq SDK
 const Session = require('../models/Session');
 const User = require('../models/User');
+const asyncHandler = require('express-async-handler'); // Or use try/catch
+const mongoose = require('mongoose'); // <-- ADD THIS LINE
 
 // 2. Initialize Groq Client (Ensure GROQ_API_KEY is in .env)
 // You might initialize this once outside the functions if preferred
@@ -277,7 +279,203 @@ exports.stopSession = async (req, res) => {
     }
 };
 
+// controllers/analysisController.js
 
+exports.getDailyAppUsage = asyncHandler(async (req, res) => {
+    // 1. Get User ID and Number of Days from Request
+    console.log("Hello")
+    const userId = new mongoose.Types.ObjectId(req.user.id); // From protect middleware
+    const numberOfDays = parseInt(req.query.days, 10) || 7; // Default to last 7 days
+
+    // Input validation
+    if (numberOfDays <= 0 || numberOfDays > 90) { // Add a reasonable limit
+        return res.status(400).json({ message: 'Invalid number of days requested.' });
+    }
+
+    // 2. Calculate Date Range
+    const endDate = new Date(); // Up to the current moment
+    const startDate = new Date();
+    startDate.setHours(0, 0, 0, 0); // Start of today
+    startDate.setDate(startDate.getDate() - (numberOfDays - 1)); // Go back N-1 days to get N full days
+
+    console.log(`Fetching daily app usage for user ${userId} from ${startDate.toISOString()} to ${endDate.toISOString()} (${numberOfDays} days).`);
+
+    try {
+        // 3. Define the Aggregation Pipeline
+        const appUsagePipeline = [
+            // Stage 1: Match sessions for the user within the date range
+            {
+                $match: {
+                    userId: userId,
+                    // Consider sessions that *started* within the range
+                    startTime: { $gte: startDate },
+                    // Ensure appUsage exists and is not empty (optional optimization)
+                    // appUsage: { $exists: true, $ne: {} }
+                }
+            },
+            // Stage 2: Convert the appUsage map to an array of key-value pairs
+            {
+                $project: {
+                    // Keep other fields if needed for debugging, otherwise just project appUsage
+                    _id: 0, // Exclude session ID unless needed later
+                    appUsageArray: { $objectToArray: "$appUsage" }
+                }
+            },
+            // Stage 3: Unwind the array to process each app entry individually
+            {
+                $unwind: "$appUsageArray" // Creates a doc per app entry per session
+            },
+            // Stage 4: Group by the app name (key 'k') and sum the time (value 'v')
+            {
+                $group: {
+                    _id: "$appUsageArray.k", // Group by app name (key from the array)
+                    totalTime: { $sum: "$appUsageArray.v" } // Sum the time spent (value)
+                }
+            },
+            // Stage 5: Project to rename fields for better output format
+            {
+                $project: {
+                    _id: 0, // Remove the default _id field
+                    appName: "$_id", // Rename grouping key to appName
+                    totalTime: 1 // Keep the calculated totalTime (in seconds)
+                }
+            },
+            // Stage 6: Sort by total time descending (optional, but useful)
+            {
+                $sort: {
+                    totalTime: -1
+                }
+            }
+        ];
+
+        // 4. Execute the Aggregation
+        const dailyAppStats = await Session.aggregate(appUsagePipeline);
+
+        // 5. Send the results
+        res.status(200).json(dailyAppStats); // Sends an array: [{ appName: 'App1', totalTime: 1850 }, ...]
+
+    } catch (error) {
+        console.error("Error fetching daily app usage statistics:", error);
+        res.status(500).json({ message: 'Server error fetching daily app usage data' });
+    }
+});
+
+// @desc    Get aggregated daily session stats for the user
+// @route   GET /api/analysis/daily
+// @access  Private
+exports.getDailyAnalysis = asyncHandler(async (req, res) => {
+    console.log("Req recieved")
+
+    const userId = new mongoose.Types.ObjectId(req.user.id); // Ensure it's ObjectId
+    const numberOfDays = parseInt(req.query.days, 10) || 7; // Default to last 7 days
+
+    if (numberOfDays <= 0 || numberOfDays > 90) { // Add a reasonable limit
+        return res.status(400).json({ message: 'Invalid number of days requested.' });
+    }
+
+    // Calculate the start date for the query
+    const startDate = new Date();
+    startDate.setHours(0, 0, 0, 0); // Start of today
+    startDate.setDate(startDate.getDate() - (numberOfDays - 1)); // Go back N-1 days
+
+    console.log(`Fetching daily analysis for user ${userId} from ${startDate.toISOString()} for ${numberOfDays} days.`);
+
+    try {
+        const dailyStats = await Session.aggregate([
+            // 1. Match relevant sessions for the user within the date range
+            {
+                $match: {
+                    userId: userId,
+                    startTime: { $gte: startDate } // Only sessions started on or after startDate
+                    // Optionally add: endTime: { $ne: null } if you only want completed sessions included
+                }
+            },
+            // 2. Group by Date (extracting the date part from startTime)
+            {
+                $group: {
+                    _id: {
+                        // Group by year, month, day of the startTime
+                        $dateToString: { format: "%Y-%m-%d", date: "$startTime", timezone: "UTC" } // Use user's timezone if possible/needed
+                    },
+                    totalFocusTime: { $sum: "$focusTime" },
+                    totalDistractionTime: { $sum: "$distractionTime" },
+                    // More complex: Aggregate appUsage (summing time per app per day)
+                    // This requires unwinding and regrouping, potentially slower.
+                    // Let's skip daily app aggregation for simplicity first.
+                    // We can add it later if needed.
+                    sessionCount: { $sum: 1 } // Count sessions per day
+                }
+            },
+            // 3. Project to reshape the output
+            {
+                $project: {
+                    _id: 0, // Remove the default _id
+                    date: "$_id", // Rename _id to date
+                    focusTime: "$totalFocusTime",
+                    distractionTime: "$totalDistractionTime",
+                    sessionCount: "$sessionCount",
+                    // Calculate focus percentage for the day
+                    focusPercentage: {
+                       $cond: {
+                            if: { $gt: [{ $add: ["$totalFocusTime", "$totalDistractionTime"] }, 0] },
+                            then: {
+                                $round: [
+                                    {
+                                        $multiply: [
+                                            { $divide: ["$totalFocusTime", { $add: ["$totalFocusTime", "$totalDistractionTime"] }] },
+                                            100
+                                        ]
+                                    },
+                                    0 // Round to 0 decimal places
+                                ]
+                            },
+                            else: 0 // Avoid division by zero
+                       }
+                    }
+                }
+            },
+            // 4. Sort by date ascending
+            {
+                $sort: { date: 1 }
+            }
+        ]);
+
+        // Optional: Fill in missing dates with zero values if needed for charts
+        const filledStats = fillMissingDates(startDate, numberOfDays, dailyStats);
+
+        res.status(200).json(filledStats);
+
+    } catch (error) {
+        console.error("Error fetching daily analysis:", error);
+        res.status(500).json({ message: 'Server error fetching daily analysis' });
+    }
+});
+
+// Helper function to fill missing dates (can be moved to utils)
+function fillMissingDates(startDate, numberOfDays, stats) {
+    const resultsMap = new Map(stats.map(s => [s.date, s]));
+    const filled = [];
+    const currentDate = new Date(startDate); // Start from the calculated start date
+
+    for (let i = 0; i < numberOfDays; i++) {
+        const dateStr = currentDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+
+        if (resultsMap.has(dateStr)) {
+            filled.push(resultsMap.get(dateStr));
+        } else {
+            // Add an entry with zero values for missing days
+            filled.push({
+                date: dateStr,
+                focusTime: 0,
+                distractionTime: 0,
+                sessionCount: 0,
+                focusPercentage: 0
+            });
+        }
+        currentDate.setDate(currentDate.getDate() + 1); // Move to the next day
+    }
+    return filled;
+}
 // --- Add other necessary controllers ---
 
 // @desc    Get current active session for logged-in user
@@ -299,7 +497,30 @@ exports.getCurrentSession = async (req, res) => {
 // @desc    Get all sessions for logged-in user (for dashboard history)
 // @route   GET /api/sessions/history
 // @access  Private
+exports.getSessionById = asyncHandler(async (req, res) => {
+    console.log("Req 1 recieved")
+    const sessionId = req.params.id;
+    const userId = req.user.id; // From protect middleware
+
+    // Validate Session ID format (basic check)
+    if (!mongoose.Types.ObjectId.isValid(sessionId)) {
+        return res.status(400).json({ message: 'Invalid session ID format' });
+    }
+
+    // Find the session and ensure it belongs to the logged-in user
+    const session = await Session.findOne({ _id: sessionId, userId: userId });
+
+    if (!session) {
+        // Use 404 Not Found if the session doesn't exist or doesn't belong to the user
+        return res.status(404).json({ message: 'Session not found or access denied' });
+    }
+
+    // Return the full session details
+    res.status(200).json(session);
+});
 exports.getSessionHistory = async (req, res) => {
+    console.log("Req recieved")
+
     try {
         const sessions = await Session.find({ userId: req.user.id })
                                        .sort({ startTime: -1 }); // Sort newest first

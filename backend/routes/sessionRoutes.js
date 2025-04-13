@@ -8,7 +8,10 @@ const {
     stopSession,
     getCurrentSession,
     getSessionHistory,
-    getUserStats // Assuming getUserStats remains in sessionController for now
+    getUserStats,
+    getSessionById,
+    getDailyAnalysis,
+    getDailyAppUsage, // Assuming getUserStats remains in sessionController for now
 } = require("../controllers/sessionController");
 
 const protect = require("../middleware/authMiddleware"); // Import authentication middleware
@@ -48,6 +51,8 @@ router.get("/history", getSessionHistory);
 // Note: You might move the *logic* for this into the userController if preferred,
 // but the route can live here if it's primarily session/analytics related data.
 router.get("/stats", getUserStats);
-
+router.get('/daily/apps', protect, getDailyAppUsage);
+router.get('/daily', protect, getDailyAnalysis);
+router.get("/:id", getSessionById);
 
 module.exports = router;

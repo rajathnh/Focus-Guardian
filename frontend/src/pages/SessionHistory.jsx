@@ -1,250 +1,487 @@
 // src/pages/SessionHistoryPage.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react'; // Added useMemo for chart data
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
-import { Line, Bar } from 'react-chartjs-2'; // Import chart types
-import {
-  Chart as ChartJS,
-  CategoryScale, // x axis
-  LinearScale,  // y axis
-  PointElement, // for points on lines
-  LineElement,  // for the lines themselves
-  BarElement,   // for bar charts
-  Title,        // Chart title
-  Tooltip,      // Hover tooltips
-  Legend,       // Legend display
-} from 'chart.js';
 
-// Register Chart.js components you will use
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-);
+// --- Import Specific Chart Components ---
+// Ensure these paths and filenames (case-sensitive!) are correct for your project
+import DailyFocusTimeChart from '../components/charts/DailyFocusTimeChart';
+import DailyFocusPercentChart from '../components/charts/DailyFocusPercentChart';
+import SessionFocusTrendChart from '../components/charts/SessionFocusTrendChart';
+import SessionDurationChart from '../components/charts/SessionDurationChart';
+import AppUsagePieChart from '../components/charts/AppUsagePieChart'; // For inline session details
+import DailyAppUsagePieChart from '../components/charts/DailyAppUsagePieChart'; // For the top daily section
 
 // --- Axios Helper ---
-// Creates an Axios instance and attempts to add the auth token from localStorage
 const createAuthAxiosInstance = () => {
-    console.log("SessionHistory: Creating Auth Axios Instance...");
-    const instance = axios.create();
+    // console.log("SessionHistory: Creating Auth Axios Instance...");
+    const instance = axios.create({ /* baseURL if needed */ });
     const token = localStorage.getItem('focusGuardianToken');
     if (token) {
         instance.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     } else {
-        console.warn("SessionHistory: Token missing for Axios instance when creating.");
+        console.warn("SessionHistory: Token missing.");
     }
     return instance;
 };
-// Create the instance ONCE when the module loads - makes it stable
 const authAxios = createAuthAxiosInstance();
 
-
-// --- Formatting Helpers --- (Move to a utils file later if needed)
+// --- Formatting Helpers (Implementations Included) ---
 const formatDuration = (start, end, units = 'min') => {
-    if (!start || !end) return "N/A"; // Ensure start/end exist
+    if (!start || !end) return "N/A";
     try {
-        const durationMs = new Date(end).getTime() - new Date(start).getTime();
+        const startDate = new Date(start);
+        const endDate = new Date(end);
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return "Invalid Date";
+
+        const durationMs = endDate.getTime() - startDate.getTime();
         if (isNaN(durationMs) || durationMs < 0) return "N/A";
+
         if (units === 'min') {
             const minutes = Math.round(durationMs / 60000);
             return `${minutes} min`;
-        } else { // seconds
+        } else {
             const seconds = Math.round(durationMs / 1000);
             return `${seconds} sec`;
         }
     } catch(e) {
-        console.error("Error formatting duration:", e);
+        console.error("Error formatting duration:", start, end, e);
         return "Error";
     }
 };
 
+const getRandomColor = () => {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+        color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+};
+
 const formatFocusPercent = (focusTime = 0, distractionTime = 0) => {
-    const totalValidTime = focusTime + distractionTime;
-    if (totalValidTime <= 0 || isNaN(totalValidTime)) return "0%"; // Avoid division by zero/NaN
-    const percent = Math.round((focusTime / totalValidTime) * 100);
+    const numFocusTime = Number(focusTime) || 0;
+    const numDistractionTime = Number(distractionTime) || 0;
+    const totalValidTime = numFocusTime + numDistractionTime;
+    if (totalValidTime <= 0) return "0%";
+    const percent = Math.round((numFocusTime / totalValidTime) * 100);
     return `${percent}%`;
 };
 
-const formatTimeShort = (seconds = 0) => {
-    const minutes = Math.round(seconds / 60);
-    return `${minutes}m`;
+const formatTimeDetailed = (seconds = 0) => {
+    const validSeconds = Number(seconds) || 0;
+    if (isNaN(validSeconds) || validSeconds < 0) return "0m";
+    const totalMinutes = Math.round(validSeconds / 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    let result = "";
+    if (hours > 0) {
+        result += `${hours}h `;
+    }
+    result += `${minutes}m`;
+    return result;
 };
-// --- End Helpers ---
 
+const formatMinutesOnly = (seconds = 0) => {
+    const validSeconds = Number(seconds) || 0;
+    if (isNaN(validSeconds) || validSeconds < 0) return "0m";
+     const minutes = Math.round(validSeconds / 60);
+     return `${minutes}m`;
+};
+
+const formatDateShort = (dateString) => {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString.includes('T') ? dateString : dateString + 'T00:00:00Z');
+        if (isNaN(date.getTime())) return "Invalid Date";
+        return date.toLocaleDateString(undefined, {
+            weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC'
+        });
+    } catch (e) {
+        console.error("Error formatting date:", dateString, e);
+        return "Error";
+    }
+};
+
+// --- Styles Object (Moved outside component) ---
+const styles = {
+    thFlex: { padding: '10px 8px', flexBasis: '150px', flexGrow: 1, borderRight: '1px solid #ddd', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'left' },
+    trFlex: { display: 'flex', borderBottom: '1px solid #eee', alignItems: 'stretch', background: '#fff' }, // Use stretch for alignment
+    trFlexExpanded: { display: 'flex', borderBottom: 'none', background: '#f8f8ff', alignItems: 'stretch' }, // Use stretch
+    tdFlex: { padding: '8px', flexBasis: '150px', flexGrow: 1, borderRight: '1px solid #eee', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center' },
+    tdFlexBold: { padding: '8px', flexBasis: '150px', flexGrow: 1, borderRight: '1px solid #eee', fontWeight: 'bold', display: 'flex', alignItems: 'center' },
+    tdFlexGreen: { padding: '8px', flexBasis: '150px', flexGrow: 1, borderRight: '1px solid #eee', color: 'green', display: 'flex', alignItems: 'center' },
+    tdFlexRed: { padding: '8px', flexBasis: '150px', flexGrow: 1, borderRight: '1px solid #eee', color: 'red', display: 'flex', alignItems: 'center' },
+    detailButtonCell: { padding: '8px', flexBasis: '80px', flexGrow: 0, textAlign: 'center', alignItems: 'center', borderRight: 'none', display: 'flex', justifyContent: 'center' }, // Centering button
+    detailButton: { padding: 0, cursor: 'pointer', border: '1px solid #ccc', background: '#eee', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '24px', width: '24px', fontSize: '14px', lineHeight: '1' },
+    trDetailDiv: { background: '#f8f8ff', borderBottom: '1px solid #ccc', animation: 'fadeInDetail 0.3s ease-out' },
+    detailHeading: { marginTop: 0, textAlign: 'center', borderBottom: '1px solid #ccc', paddingBottom: '5px', fontWeight: '500', marginBottom: '10px' },
+    errorText: { color: 'orange', textAlign: 'center', padding: '20px', gridColumn: '1 / -1' }
+};
 
 // --- THE COMPONENT ---
 function SessionHistoryPage() {
     const navigate = useNavigate();
-    // Use the globally stable authAxios instance
 
+    // --- State variables ---
     const [history, setHistory] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [historyLoading, setHistoryLoading] = useState(true);
+    const [historyError, setHistoryError] = useState(null);
+    const [dailyData, setDailyData] = useState([]);
+    const [dailyLoading, setDailyLoading] = useState(true);
+    const [dailyError, setDailyError] = useState(null);
+    const [dailyAppStats, setDailyAppStats] = useState([]);
+    const [dailyAppLoading, setDailyAppLoading] = useState(true);
+    const [dailyAppError, setDailyAppError] = useState(null);
+    const [expandedSessionId, setExpandedSessionId] = useState(null); // ID for inline expansion
+    const [expandedSessionData, setExpandedSessionData] = useState(null); // Data for inline expansion
+    const [expandedDetailLoading, setExpandedDetailLoading] = useState(false); // Loading for inline expansion
+    const [expandedDetailError, setExpandedDetailError] = useState(null); // Error for inline expansion
 
-    // Define stable logout reference using useCallback
-     const handleLogout = useCallback(() => {
-         localStorage.removeItem('focusGuardianToken');
-         localStorage.removeItem('focusGuardianUser');
-         navigate('/login');
-     }, [navigate]); // Only depends on navigate
+    const fetchTargetRef = useRef(null);
 
-    // --- useCallback for Fetch Function ---
-    const fetchData = useCallback(async () => {
-        console.log("SessionHistory: Fetching data...");
-        setLoading(true); setError(null);
+    // eslint-disable-next-line no-unused-vars
+    const [daysToShow, setDaysToShow] = useState(7);
+
+    // --- Handlers ---
+    const handleLogout = useCallback(() => {
+        localStorage.removeItem('focusGuardianToken');
+        localStorage.removeItem('focusGuardianUser');
+        setHistory([]);
+        setDailyData([]);
+        setDailyAppStats([]);
+        setExpandedSessionId(null);
+        navigate('/login');
+    }, [navigate]);
+
+    const fetchSessionHistory = useCallback(async () => {
+        setHistoryLoading(true);
+        setHistoryError(null);
         const token = localStorage.getItem('focusGuardianToken');
-        if (!token) { console.log("SessionHistory: No token, navigating"); navigate('/login'); return; }
-
+        if (!token) { handleLogout(); return; }
+        if (!authAxios.defaults.headers.common['Authorization']) { authAxios.defaults.headers.common['Authorization'] = `Bearer ${token}`; }
         try {
             const response = await authAxios.get('/api/sessions/history');
-            console.log("SessionHistory: Received:", response.data?.length ?? 0, "sessions");
-            // Ensure data is always an array, even if backend sends null/undefined
-             setHistory(Array.isArray(response.data) ? response.data : []);
+            // Assuming API returns newest first. If not, sort here.
+            setHistory(Array.isArray(response.data) ? response.data : []);
         } catch (err) {
-            console.error("Error fetching session history:", err);
-            setError("Could not load session history.");
-            if (err.response?.status === 401) {
-                 handleLogout(); // Call stable logout
-             }
+            setHistoryError("Could not load session history.");
+            if (err.response?.status === 401 || err.response?.status === 403) { handleLogout(); }
         } finally {
-            setLoading(false);
+            setHistoryLoading(false);
         }
-     // Stable dependencies
-    }, [navigate, handleLogout]); // authAxios is stable as it's outside
+    }, [handleLogout]);
 
-    // --- useEffect to Call Fetch ---
+    const fetchDailyData = useCallback(async () => {
+        setDailyLoading(true);
+        setDailyError(null);
+        const token = localStorage.getItem('focusGuardianToken');
+        if (!token) { handleLogout(); return; }
+        if (!authAxios.defaults.headers.common['Authorization']) { authAxios.defaults.headers.common['Authorization'] = `Bearer ${token}`; }
+        try {
+            const response = await authAxios.get(`/api/sessions/daily?days=${daysToShow}`);
+            setDailyData(Array.isArray(response.data) ? response.data : []);
+        } catch (err) {
+            setDailyError("Could not load daily analysis data.");
+            if (err.response?.status === 401 || err.response?.status === 403) { handleLogout(); }
+        } finally {
+            setDailyLoading(false);
+        }
+    }, [daysToShow, handleLogout]);
+
+    const fetchDailyAppStats = useCallback(async () => {
+        setDailyAppLoading(true);
+        setDailyAppError(null);
+        const token = localStorage.getItem('focusGuardianToken');
+        if (!token) { handleLogout(); return; }
+        if (!authAxios.defaults.headers.common['Authorization']) { authAxios.defaults.headers.common['Authorization'] = `Bearer ${token}`; }
+        try {
+            const response = await authAxios.get(`/api/sessions/daily/apps?days=${daysToShow}`); // Verify route
+            setDailyAppStats(Array.isArray(response.data) ? response.data : []);
+        } catch (err) {
+            setDailyAppError("Could not load daily app usage data.");
+            if (err.response?.status === 401 || err.response?.status === 403) { handleLogout(); }
+        } finally {
+            setDailyAppLoading(false);
+        }
+    }, [daysToShow, handleLogout]);
+
+    const fetchExpandedSessionDetails = useCallback(async (sessionId) => {
+        if (!sessionId) return;
+    
+        console.log(`fetchExpandedSessionDetails called for session: ${sessionId}. Current expanded: ${expandedSessionId}`); // Log entry
+    
+        // --- Explicit Toggle Check FIRST ---
+        if (sessionId === expandedSessionId) {
+            console.log(`Toggle OFF detected for ${sessionId}. Closing.`);
+            setExpandedSessionId(null);
+            setExpandedSessionData(null);
+            setExpandedDetailLoading(false);
+            setExpandedDetailError(null);
+            fetchTargetRef.current = null;
+            return; // Exit immediately
+        }
+    
+        // --- If we reach here, it means we are OPENING a new session (or switching) ---
+    
+        // Optional check to prevent duplicate fetches for the *same* target
+        if (expandedDetailLoading && fetchTargetRef.current === sessionId) {
+            console.log(`Fetch already in progress for ${sessionId}, skipping duplicate start.`);
+            return;
+        }
+    
+        // Starting NEW expansion
+        console.log(`Fetching details for NEW expanded session ID: ${sessionId}`);
+        fetchTargetRef.current = sessionId; // Set ref target FIRST
+        setExpandedDetailLoading(true);    // Set loading true
+        setExpandedDetailError(null);     // Clear previous error
+        setExpandedSessionData(null);     // Clear previous data
+        setExpandedSessionId(sessionId);   // Set the ID of the session to expand
+    
+        const token = localStorage.getItem('focusGuardianToken');
+        // --- Fill Blank 1: Handle logout ---
+        if (!token) {
+            console.log("No token found during detail fetch, logging out.");
+            setExpandedDetailLoading(false); // Stop loading before logout
+            setExpandedSessionId(null);      // Clear expansion target
+            fetchTargetRef.current = null;
+            handleLogout();
+            return;
+        }
+        // --- Fill Blank 2: Set header ---
+        if (!authAxios.defaults.headers.common['Authorization']) {
+            console.log("Re-adding auth token for detail fetch.");
+            authAxios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        }
+    
+        let success = false;
+        let fetchedData = null;
+        try {
+            const response = await authAxios.get(`/api/sessions/${sessionId}`);
+            // Check ref before processing response data
+            if (fetchTargetRef.current === sessionId) {
+                fetchedData = response.data;
+                success = true;
+                 console.log(`<<< Successfully fetched data for ${sessionId}`);
+            } else {
+                console.log(`<<< Fetch completed for ${sessionId}, but target changed. Discarding data.`);
+            }
+        } catch (err) {
+             // Check ref before processing error data
+            if (fetchTargetRef.current === sessionId) {
+                 console.error(`Error fetching expanded details for target ${sessionId}:`, err);
+                 // --- Fill Blank 3: Handle specific errors ---
+                 if (err.response?.status === 404) {
+                     setExpandedDetailError("Session details not found.");
+                 } else if (err.response?.status === 401 || err.response?.status === 403) {
+                     setExpandedDetailError("Authentication failed. Logging out..."); // Set error briefly
+                     handleLogout(); // Logout will redirect
+                     // Clear expansion state immediately as well
+                     setExpandedSessionId(null);
+                     fetchTargetRef.current = null;
+                 } else {
+                     setExpandedDetailError("Could not load session details due to server error.");
+                 }
+                 // Ensure data is cleared on error
+                 setExpandedSessionData(null);
+            } else {
+                console.log(`Error received for ${sessionId}, but target changed. Ignoring error.`);
+            }
+        } finally {
+             // Check ref before setting final state
+            if (fetchTargetRef.current === sessionId) {
+                console.log(`<<< FINALLY processing result for ${sessionId}, success=${success} >>>`);
+                 // --- Fill Blank 4: Set data/error on success ---
+                if(success && fetchedData) {
+                    setExpandedSessionData(fetchedData);
+                    setExpandedDetailError(null); // Clear any previous error on success
+                }
+                // Stop loading ONLY if we processed this target
+                setExpandedDetailLoading(false);
+            } else {
+                console.log(`<<< FINALLY: Target changed from ${sessionId}. Not updating state.`);
+                // Don't touch loading state here - the fetch for the *new* target will handle it
+            }
+        }
+    }, [handleLogout, expandedSessionId, expandedDetailLoading]); // Keep dependencies needed for logic inside
+    
+    // --- useEffect for initial data fetches ---
     useEffect(() => {
-        fetchData();
-        // Dependency is the stable fetchData function
-    }, [fetchData]);
-
-    // --- Prepare Data for Charts using useMemo ---
-    // useMemo prevents recalculating chart data on every render unless 'history' changes
-
-    // Data for "Focus % Over Time" Line Chart
-    const focusTrendData = useMemo(() => {
-         if (!history || history.length === 0) return { labels: [], datasets: [] }; // Empty structure if no history
-         const validHistory = history.filter(s => s.startTime); // Filter sessions without startTime if any
-        return {
-             // Show Date + Time for potentially multiple sessions per day
-            labels: validHistory.map(s => new Date(s.startTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })).reverse(),
-             datasets: [{
-                 label: 'Focus % per Session',
-                 data: validHistory.map(s => {
-                    const total = (s.focusTime || 0) + (s.distractionTime || 0);
-                    return total === 0 ? 0 : Math.round(((s.focusTime || 0) / total) * 100);
-                 }).reverse(),
-                 borderColor: 'rgb(75, 192, 192)',
-                 backgroundColor: 'rgba(75, 192, 192, 0.1)',
-                 tension: 0.1,
-                 fill: true // Optional: fill area under line
-             }]
-        };
-    }, [history]);
-
-    // Data for "Session Duration" Bar Chart
-    const durationData = useMemo(() => {
-         if (!history || history.length === 0) return { labels: [], datasets: [] };
-        const validHistory = history.filter(s => s.startTime && s.endTime); // Only use completed sessions
-        return {
-            labels: validHistory.map(s => new Date(s.startTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })).reverse(),
-             datasets: [{
-                 label: 'Session Duration (Minutes)',
-                 // Calculate duration in minutes
-                data: validHistory.map(s => Math.round((new Date(s.endTime).getTime() - new Date(s.startTime).getTime()) / 60000)).reverse(),
-                backgroundColor: 'rgba(53, 162, 235, 0.6)',
-             }]
-        };
-    }, [history]);
-
-    // Common Chart options
-     const commonChartOptions = useMemo(() => ({
-         responsive: true,
-         maintainAspectRatio: false, // Allow chart to fill container better
-         plugins: {
-             legend: { display: true, position: 'top' },
-             tooltip: { mode: 'index', intersect: false }
-         },
-         scales: { y: { beginAtZero: true } } // Common Y axis starting at 0
-     }), []);
+        const token = localStorage.getItem('focusGuardianToken');
+        if (!token) {
+            handleLogout();
+        } else {
+             fetchSessionHistory();
+             fetchDailyData();
+             fetchDailyAppStats();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Run once
 
 
-    // --- Rendering ---
-    if (loading) return <div style={{ padding: '20px', textAlign: 'center' }}>Loading Session History...</div>;
-    if (error) return <div style={{ padding: '20px', color: 'red', textAlign: 'center' }}>Error: {error}. <Link to="/dashboard">Go Back</Link>.</div>;
+    // --- Chart Options ---
+    const commonBarChartOptions = useMemo(() => ({
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'top' }, tooltip: { mode: 'index', intersect: false } },
+        scales: { y: { beginAtZero: true } }
+    }), []);
+    const percentChartOptions = useMemo(() => ({
+        ...commonBarChartOptions,
+        scales: { y: { ...commonBarChartOptions.scales.y, min: 0, max: 100 } }
+    }), [commonBarChartOptions]);
+    const commonLineChartOptions = useMemo(() => ({
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: true, position: 'top' }, tooltip: { mode: 'index', intersect: false } },
+        scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 10 } }, y: { beginAtZero: true } }
+    }), []);
+    const focusPercentLineOptions = useMemo(() => ({
+        ...commonLineChartOptions,
+        scales: { ...commonLineChartOptions.scales, y: { ...commonLineChartOptions.scales.y, min: 0, max: 100 } }
+    }), [commonLineChartOptions]);
+    const pieChartOptions = useMemo(() => ({
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12, padding: 15 } }, // Adjust legend appearance
+            tooltip: { callbacks: { label: (context) => `${context.label || ''}: ${context.parsed || 0} min` } },
+        }
+    }), []);
+
+
+    // --- Rendering Logic ---
+    const isLoading = historyLoading || dailyLoading || dailyAppLoading;
+    const displayError = historyError || dailyError || dailyAppError;
 
     return (
-      <div style={{ padding: '20px', fontFamily: 'sans-serif' }}>
-         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
-             <h1>Session History</h1>
-            <Link to="/dashboard">← Back to Dashboard</Link>
-         </div>
+        <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto' }}>
+             {/* Add keyframes for animation */}
+             <style>{`@keyframes fadeInDetail { 0% { opacity: 0; max-height: 0; overflow: hidden; } 100% { opacity: 1; max-height: 500px; overflow: hidden; } }`}</style>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h1>Analytics & History</h1>
+                <div><Link to="/dashboard" style={{ textDecoration: 'none', color: '#007bff' }}>← Back to Dashboard</Link></div>
+            </div>
 
+            {/* Loading/Error Indicators */}
+            {isLoading && <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: '1.2em' }}>Loading data...</div>}
+            {displayError && !isLoading && (
+                <div style={{ padding: '20px', color: 'red', textAlign: 'center', border: '1px solid red', borderRadius: '5px', margin: '20px 0' }}>
+                    Error loading some data. Charts or logs may be incomplete. Please try refreshing. <Link to="/dashboard">Go Back</Link>.
+                </div>
+            )}
 
-         {/* --- Charts Section --- */}
-        {history.length > 0 ? (
-             <div style={{ marginBottom: '30px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
-                 <div style={{ border: '1px solid #eee', padding: '15px', borderRadius: '8px' }}>
-                     <h3 style={{ marginTop: 0, textAlign: 'center' }}>Focus % Per Session</h3>
-                     <div style={{ position: 'relative', height: '250px' }}> {/* Set container height */}
-                         <Line options={{...commonChartOptions, scales: { y: { ...commonChartOptions.scales.y, max: 100 }}}} data={focusTrendData} />
-                     </div>
-                 </div>
-                 <div style={{ border: '1px solid #eee', padding: '15px', borderRadius: '8px' }}>
-                      <h3 style={{ marginTop: 0, textAlign: 'center' }}>Session Duration</h3>
-                      <div style={{ position: 'relative', height: '250px' }}> {/* Set container height */}
-                          <Bar options={{...commonChartOptions, plugins: { title: { display: false } } }} data={durationData} />
-                     </div>
-                  </div>
-              </div>
-          ) : (
-               <p>No sessions recorded yet to display charts.</p>
-           )}
+            {/* Main Content */}
+            {!isLoading && (
+                <>
+                    {/* Daily Analysis Section */}
+                    <div style={{ marginBottom: '40px' }}>
+                         <h2 style={{ borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Daily Analysis (Last {daysToShow} Days)</h2>
+                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginTop: '15px' }}>
+                             {dailyError ? <p style={styles.errorText}>Focus Time/Percent Chart Error</p> : <>
+                                 <DailyFocusTimeChart dailyData={dailyData} options={commonBarChartOptions} formatDateShort={formatDateShort} />
+                                 <DailyFocusPercentChart dailyData={dailyData} options={percentChartOptions} formatDateShort={formatDateShort} />
+                             </>}
+                             {dailyAppError ? <p style={styles.errorText}>Daily App Usage Chart Error</p> :
+                                 <DailyAppUsagePieChart dailyAppStats={dailyAppStats} options={pieChartOptions} getRandomColor={getRandomColor} />
+                             }
+                         </div>
+                    </div>
 
+                    {/* Per-Session Trends Section */}
+                    <div style={{ marginBottom: '40px' }}>
+                        <h2 style={{ borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Per-Session Trends</h2>
+                        {historyError ? <p style={styles.errorText}>Trend Chart Error</p> : (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginTop: '15px' }}>
+                                <SessionFocusTrendChart history={history} options={focusPercentLineOptions} />
+                                <SessionDurationChart history={history} options={commonBarChartOptions} />
+                            </div>
+                        )}
+                    </div>
 
-         {/* --- Session List Section --- */}
-         <h2>Detailed Log</h2>
-         {history.length === 0 ? (
-           <p>No sessions recorded yet.</p>
-         ) : (
-            // Simple table for better alignment
-           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-             <thead>
-               <tr style={{ borderBottom: '2px solid #ccc', textAlign: 'left' }}>
-                 <th style={{ padding: '8px' }}>Start Time</th>
-                 <th style={{ padding: '8px' }}>Duration</th>
-                 <th style={{ padding: '8px' }}>Focus %</th>
-                 <th style={{ padding: '8px' }}>Focus Time</th>
-                 <th style={{ padding: '8px' }}>Distraction Time</th>
-                 <th style={{ padding: '8px' }}>Top App</th>
-               </tr>
-             </thead>
-             <tbody>
-              {history.map((session) => {
-                 const topAppKey = Object.entries(session.appUsage || {}).sort(([,a],[,b]) => b-a)[0]?.[0];
-                 const topAppName = topAppKey ? topAppKey.replace(/_/g, '.') : 'N/A'; // De-sanitize for display
+                    {/* Detailed Session Log Section */}
+                    <div style={{ marginTop: '30px' }}>
+                        <h2 style={{ borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Detailed Session Log</h2>
+                        {historyError ? <p style={{ color: 'orange' }}>Could not load the detailed session log.</p>
+                         : history.length === 0 ? <p>No sessions recorded yet.</p>
+                         : (
+                            <div style={{ overflowX: 'auto' }}>
+                                <div style={{ border: '1px solid #ccc', borderRadius: '5px' }}>
+                                    {/* Header Row */}
+                                    <div style={{ display: 'flex', fontWeight: 'bold', background: '#f2f2f2', borderBottom: '2px solid #ccc' }}>
+                                        <div style={styles.thFlex}>Start Time</div>
+                                        <div style={styles.thFlex}>Duration</div>
+                                        <div style={styles.thFlex}>Focus %</div>
+                                        <div style={styles.thFlex}>Focus Time</div>
+                                        <div style={styles.thFlex}>Distraction</div>
+                                        <div style={styles.thFlex}>Top App</div>
+                                        <div style={{ ...styles.thFlex, flexBasis: '80px', flexGrow: 0, textAlign: 'center', borderRight: 'none' }}>Details</div>
+                                    </div>
+                                    {/* Data Rows */}
+                                    {history.map((session) => {
+                                        const isExpanded = expandedSessionId === session._id;
+                                        const topAppEntry = Object.entries(session.appUsage || {}).sort(([, a], [, b]) => b - a)[0];
+                                        const topAppName = topAppEntry ? topAppEntry[0].replace(/_/g, '.') : 'N/A';
+                                        const topAppTime = topAppEntry ? topAppEntry[1] : 0;
 
-                 return (
-                    <tr key={session._id} style={{ borderBottom: '1px solid #eee' }}>
-                       <td style={{ padding: '8px' }}>{new Date(session.startTime).toLocaleString()}</td>
-                       <td style={{ padding: '8px' }}>{formatDuration(session.startTime, session.endTime)}</td>
-                       <td style={{ padding: '8px' }}>{formatFocusPercent(session.focusTime, session.distractionTime)}</td>
-                       <td style={{ padding: '8px' }}>{formatTimeShort(session.focusTime || 0)}</td>
-                       <td style={{ padding: '8px' }}>{formatTimeShort(session.distractionTime || 0)}</td>
-                       <td style={{ padding: '8px' }}>{topAppName}</td>
-                    </tr>
-                  );
-                })}
-             </tbody>
-           </table>
-          )}
-       </div>
-   );
+                                        return (
+                                            <React.Fragment key={session._id}>
+                                                {/* Main Row */}
+                                                <div style={isExpanded ? styles.trFlexExpanded : styles.trFlex}>
+                                                    <div style={styles.tdFlex}>{new Date(session.startTime).toLocaleString()}</div>
+                                                    <div style={styles.tdFlex}>{formatDuration(session.startTime, session.endTime)}</div>
+                                                    <div style={styles.tdFlexBold}>{formatFocusPercent(session.focusTime, session.distractionTime)}</div>
+                                                    <div style={styles.tdFlexGreen}>{formatTimeDetailed(session.focusTime)}</div>
+                                                    <div style={styles.tdFlexRed}>{formatTimeDetailed(session.distractionTime)}</div>
+                                                    <div style={styles.tdFlex}>{topAppName !== 'N/A' ? `${topAppName} (${formatMinutesOnly(topAppTime)})` : 'N/A'}</div>
+                                                    <div style={styles.detailButtonCell}> {/* Use specific style */}
+                                                        <button
+                                                            onClick={() => fetchExpandedSessionDetails(session._id)}
+                                                            disabled={expandedDetailLoading && expandedSessionId === session._id}
+                                                            style={styles.detailButton}
+                                                            title={isExpanded ? "Hide Details" : "Show Details"}
+                                                        >
+                                                            {expandedDetailLoading && expandedSessionId === session._id ? '…' : (isExpanded ? '▼' : '▶')}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {/* Detail Row (Conditional) */}
+                                                {isExpanded && (
+                                                    <div style={styles.trDetailDiv}>
+                                                        {expandedDetailLoading && <p style={{ padding: '15px', textAlign: 'center' }}>Loading details...</p>}
+                                                        {expandedDetailError && <p style={{ color: 'red', padding: '15px', textAlign: 'center' }}>Error: {expandedDetailError}</p>}
+                                                        {expandedSessionData && !expandedDetailLoading && !expandedDetailError && (
+                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', padding: '15px' }}>
+                                                                <div> {/* Summary */}
+                                                                    <h4 style={styles.detailHeading}>Summary</h4>
+                                                                    <p><strong>Started:</strong> {new Date(expandedSessionData.startTime).toLocaleString()}</p>
+                                                                    <p><strong>Ended:</strong> {expandedSessionData.endTime ? new Date(expandedSessionData.endTime).toLocaleString() : 'In Progress'}</p>
+                                                                    <p><strong>Duration:</strong> {formatDuration(expandedSessionData.startTime, expandedSessionData.endTime)}</p>
+                                                                    <p><strong>Focus %:</strong> <span style={{ fontWeight: 'bold' }}>{formatFocusPercent(expandedSessionData.focusTime, expandedSessionData.distractionTime)}</span></p>
+                                                                    <p><strong>Focus Time:</strong> <span style={{ color: 'green' }}>{formatTimeDetailed(expandedSessionData.focusTime)}</span></p>
+                                                                    <p><strong>Distraction Time:</strong> <span style={{ color: 'red' }}>{formatTimeDetailed(expandedSessionData.distractionTime)}</span></p>
+                                                                </div>
+                                                                <div> {/* App Usage Pie */}
+                                                                    <h4 style={styles.detailHeading}>Application Usage (This Session)</h4>
+                                                                    <AppUsagePieChart
+                                                                        sessionData={expandedSessionData}
+                                                                        options={pieChartOptions}
+                                                                        getRandomColor={getRandomColor}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </React.Fragment>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </>
+            )}
+        </div>
+    );
 }
 
 export default SessionHistoryPage;
