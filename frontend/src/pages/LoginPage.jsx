@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom'; // Import Link
+const API_URL = process.env.REACT_APP_API_BASE_URL;
 
 function LoginPage() {
   const [email, setEmail] = useState('');
@@ -21,7 +22,7 @@ function LoginPage() {
     }
 
     try {
-      const response = await axios.post('/api/users/login', { email, password });
+      const response = await axios.post(`${API_URL}/api/users/login`, { email, password });
       console.log('Login successful:', response.data);
 
       // Store token and user data in localStorage for other parts of the app

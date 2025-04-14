@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 
+
 // --- Import Specific Chart Components ---
 // Ensure these paths and filenames (case-sensitive!) are correct for your project
 import DailyFocusTimeChart from '../components/charts/DailyFocusTimeChart';
@@ -11,7 +12,7 @@ import SessionFocusTrendChart from '../components/charts/SessionFocusTrendChart'
 import SessionDurationChart from '../components/charts/SessionDurationChart';
 import AppUsagePieChart from '../components/charts/AppUsagePieChart'; // For inline session details
 import DailyAppUsagePieChart from '../components/charts/DailyAppUsagePieChart'; // For the top daily section
-
+const API_URL = process.env.REACT_APP_API_BASE_URL;
 // --- Axios Helper ---
 const createAuthAxiosInstance = () => {
     // console.log("SessionHistory: Creating Auth Axios Instance...");
@@ -161,7 +162,7 @@ function SessionHistoryPage() {
         if (!token) { handleLogout(); return; }
         if (!authAxios.defaults.headers.common['Authorization']) { authAxios.defaults.headers.common['Authorization'] = `Bearer ${token}`; }
         try {
-            const response = await authAxios.get('/api/sessions/history');
+            const response = await authAxios.get(`${API_URL}/api/sessions/history`);
             // Assuming API returns newest first. If not, sort here.
             setHistory(Array.isArray(response.data) ? response.data : []);
         } catch (err) {
@@ -179,7 +180,7 @@ function SessionHistoryPage() {
         if (!token) { handleLogout(); return; }
         if (!authAxios.defaults.headers.common['Authorization']) { authAxios.defaults.headers.common['Authorization'] = `Bearer ${token}`; }
         try {
-            const response = await authAxios.get(`/api/sessions/daily?days=${daysToShow}`);
+            const response = await authAxios.get(`${API_URL}/api/sessions/daily?days=${daysToShow}`);
             setDailyData(Array.isArray(response.data) ? response.data : []);
         } catch (err) {
             setDailyError("Could not load daily analysis data.");
@@ -196,7 +197,7 @@ function SessionHistoryPage() {
         if (!token) { handleLogout(); return; }
         if (!authAxios.defaults.headers.common['Authorization']) { authAxios.defaults.headers.common['Authorization'] = `Bearer ${token}`; }
         try {
-            const response = await authAxios.get(`/api/sessions/daily/apps?days=${daysToShow}`); // Verify route
+            const response = await authAxios.get(`${API_URL}/api/sessions/daily/apps?days=${daysToShow}`); // Verify route
             setDailyAppStats(Array.isArray(response.data) ? response.data : []);
         } catch (err) {
             setDailyAppError("Could not load daily app usage data.");
@@ -257,7 +258,7 @@ function SessionHistoryPage() {
         let success = false;
         let fetchedData = null;
         try {
-            const response = await authAxios.get(`/api/sessions/${sessionId}`);
+            const response = await authAxios.get(`${API_URL}/api/sessions/${sessionId}`);
             // Check ref before processing response data
             if (fetchTargetRef.current === sessionId) {
                 fetchedData = response.data;

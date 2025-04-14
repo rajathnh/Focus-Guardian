@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import Chatbot from '../components/Chatbot'; // <-- Chatbot component is imported here
-
+const API_URL = process.env.REACT_APP_API_BASE_URL;
 // --- Axios Helper ---
 const createAuthAxiosInstance = () => {
     // console.log("Creating Auth Axios Instance...");
@@ -115,7 +115,7 @@ function DashboardPage() {
 
         try {
            console.log("Calling backend stop API...");
-           await authAxios.post(`/api/sessions/${sessionIdToStop}/stop`);
+           await authAxios.post(`${API_URL}/api/sessions/${sessionIdToStop}/stop`);
            console.log("Backend session stopped successfully.");
         } catch (err) {
             console.error("Error calling backend stop API:", err);
@@ -164,7 +164,7 @@ function DashboardPage() {
              }
 
             console.log(`Sending combined image to backend (size: ~${Math.round(combinedImageUri.length * 3/4 / 1024)} kB)...`);
-            const response = await authAxios.post(`/api/sessions/data/${sessionId}`, { combinedImageUri });
+            const response = await authAxios.post(`${API_URL}/api/sessions/data/${sessionId}`, { combinedImageUri });
 
             // Update latest analysis only if session is still running
              if (isSessionRunningRef.current && activeSession?._id === sessionId) {
@@ -230,7 +230,7 @@ function DashboardPage() {
 
             // 2. Start Backend Session
             console.log("Starting backend session...");
-            const response = await authAxios.post('/api/sessions/start');
+            const response = await authAxios.post(`${API_URL}/api/sessions/start`);
             newSession = response.data; // Expecting { sessionId: '...', startTime: '...' } or similar
             if (!newSession || !newSession.sessionId) { throw new Error("Backend did not return a valid session ID."); }
             console.log("Backend session started:", newSession.sessionId);
@@ -272,10 +272,10 @@ function DashboardPage() {
 
             try {
                 console.log("InitialLoad: Fetching user profile...");
-                const userProfilePromise = authAxios.get('/api/users/profile');
+                const userProfilePromise = authAxios.get(`${API_URL}/api/users/profile`);
                 console.log("InitialLoad: Fetching current session...");
                 // Use .catch on the session promise individually to handle the expected 404
-                const currentSessionPromise = authAxios.get('/api/sessions/current')
+                const currentSessionPromise = authAxios.get(`${API_URL}/api/sessions/current`)
                     .catch(sessionError => {
                         // If the error is specifically a 404 for the session, resolve with null
                         if (sessionError.response?.status === 404) {
@@ -323,7 +323,7 @@ function DashboardPage() {
                      // Show a general error, potentially try loading user profile again
                      setError(`Could not load dashboard data: ${err.message}`);
                      try {
-                         const userResponse = await authAxios.get('/api/users/profile');
+                         const userResponse = await authAxios.get(`${API_URL}/api/users/profile`);
                          if (isMounted) setUser(userResponse.data);
                      } catch (userErr) { /* ... handle profile error or logout ... */ }
                  }

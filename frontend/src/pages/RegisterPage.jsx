@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom'; // Import Link
+const API_URL = process.env.REACT_APP_API_BASE_URL;
 
 function RegisterPage() {
   const [name, setName] = useState('');
@@ -30,7 +31,7 @@ function RegisterPage() {
     setLoading(true);
 
     try {
-      const response = await axios.post('/api/users/register', { name, email, password });
+      const response = await axios.post(`${API_URL}/api/users/register`, { name, email, password });
       console.log('Registration successful:', response.data);
 
       // Decide: Auto-login or just inform user? Let's auto-login here for flow.

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+const API_URL = process.env.REACT_APP_API_BASE_URL;
 
 // Basic styling (consider moving to a CSS file or styled-components)
 const styles = {
@@ -155,7 +156,7 @@ function Chatbot() {
                 const config = {
                     headers: { 'Authorization': `Bearer ${token}` }
                 };
-                const response = await axios.get('/api/chat/history', config); // Use absolute path or configure baseURL
+                const response = await axios.get(`${API_URL}/api/chat/history`, config); // Use absolute path or configure baseURL
 
                 if (isMounted) {
                     if (response.data && Array.isArray(response.data.messages)) {
@@ -222,7 +223,7 @@ function Chatbot() {
                 }
             };
             // Use absolute path or ensure axios baseURL is configured
-            const response = await axios.post('/api/chat/converse', { message: messageText }, config);
+            const response = await axios.post(`${API_URL}/api/chat/converse`, { message: messageText }, config);
 
             if (response.data && response.data.reply) {
                 const botMessage = { role: 'assistant', content: response.data.reply };
@@ -290,7 +291,7 @@ function Chatbot() {
                     };
                     console.log("Sending audio data to backend...");
                     // Use absolute path or ensure axios baseURL is configured
-                    const response = await axios.post('/api/chat/converse/audio', formData, config);
+                    const response = await axios.post(`${API_URL}/api/chat/converse/audio`, formData, config);
 
                     // --- Add BOTH user's transcribed text and bot's reply ---
                     const newMessagesToAdd = [];
