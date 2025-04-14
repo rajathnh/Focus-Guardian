@@ -89,28 +89,57 @@ exports.processSessionData = async (req, res) => {
         // 4. Prepare for Groq Call (Rate limit passed OR first call)
         // Ensure prompt clearly describes the expected input and output
         const prompt = `
-          You are analyzing a composite image showing a user’s webcam view (LEFT) and their computer screen (RIGHT). You are an expert in productivity monitoring and visual context recognition.
+You are an AI analyzing a composite image: LEFT half is webcam, RIGHT half is screen capture.
+Your **critical task** is to determine if the user is **actively focused on work shown on the screen**.
 
-The RIGHT HALF shows a real-time screen capture. 
-- Do NOT infer based on tabs or titles. 
-- Use the visible main content only: app UI, text layout, buttons, and overall structure.
+**Analysis Steps & Rules:**
 
-The LEFT HALF shows the user’s webcam.
-- Use facial orientation, gaze, posture to judge focus.
+1.  **Analyze Webcam (LEFT FIRST):**
+    *   Determine the user's primary gaze direction. Is it **clearly towards the screen**?
+    *   **Crucial Rule:** If the gaze is **clearly AWAY** from the screen (e.g., down at phone/lap, looking sideways, eyes closed), proceed directly to step 4 and set **'focus' to 'false'**, regardless of screen content.
 
-Important context: Some tools like ChatGPT or code assistants may have minimalist UIs but can still indicate deep focus, especially when the content includes technical language, coding examples, or structured writing.
+2.  **Analyze Screen (RIGHT - only if gaze is towards screen):**
+    *   Identify the primary application/content. Is it **work-related** (IDE, Docs, Code, Figma, Technical sites, etc.)?
+    *   Or is it **non-work-related** (Social Media, YouTube/Netflix, Games, Entertainment news)?
 
-Return a strict JSON object with:
+3.  **Determine 'focus' (boolean):**
+    *   Set to 'true' **ONLY IF** Step 1 confirmed gaze is towards screen **AND** Step 2 confirmed a work-related app/task.
+    *   Set to 'false' if the conditions in Step 1 (gaze away) were met, OR if Step 2 showed a non-work app.
 
-1. "focus" (boolean): TRUE only if webcam gaze is toward screen AND the screen shows a work-related app/tool.
-2. "appName" (string): Best guess of the tool or platform in use, based ONLY on visible screen content. Use names like "ChatGPT", "online IDE", "Notion", "Docs", "YouTube", etc. If unclear, return "Unknown".
-3. "activity" (string): High-level guess of the user’s activity. Examples: "coding", "writing", "research", "watching video", "social media", "idle", "away", "distracted".
+4.  **Determine 'appName' (string):**
+    *   Best guess of the primary application name on the screen (e.g., "VSCode", "Google Docs", "YouTube", "Slack"). Use "Unknown" if unclear. Do this even if focus is false.
 
-Example output:
-{"focus": true, "appName": "ChatGPT", "activity": "coding"}
+5.  **Determine 'activity' (string):**
+    *   High-level guess of the user's activity based on BOTH views.
+    *   Examples: "coding", "writing", "research", "watching video", "social media", "idle", "away".
+    *   **If 'focus' is 'false' due to gaze being away, use activities like "looking away", "on phone", "distracted".**
 
-Only return the JSON object. Do not explain your reasoning.
+**Output Format:**
+Return ONLY a valid JSON object:
+\`\`\`json
+{
+  "focus": boolean,
+  "appName": string,
+  "activity": string
+}
+\`\`\`
 
+**Example Output (Gaze Towards Screen, Work App):**
+\`\`\`json
+{"focus": true, "appName": "VSCode", "activity": "coding"}
+\`\`\`
+
+**Example Output (Gaze Away, Work App):**
+\`\`\`json
+{"focus": false, "appName": "VSCode", "activity": "looking away"}
+\`\`\`
+
+**Example Output (Gaze Towards Screen, Non-Work App):**
+\`\`\`json
+{"focus": false, "appName": "YouTube", "activity": "watching video"}
+\`\`\`
+
+Do not explain your reasoning. Only output the JSON.
 `;
 
         console.log(`Backend Rate Limit PASSED for session ${sessionId}. Sending request to Groq...`);
