@@ -259,6 +259,108 @@ async function getChatbotResponse(userId, userMessageContent) {
     }
 }
 
+async function handleAudioMessage(req, res) {
+    // Auth checks (defensive coding, assumes protect middleware ran)
+    if (!req.user || !req.user.id) {
+        if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+            try { fs.unlinkSync(req.file.path); } catch (e) { console.error("Error cleaning up file on auth fail:", e); }
+        }
+        return res.status(401).json({ error: 'User authentication required (Middleware Error?).' });
+    }
+    // File check (defensive coding, assumes multer ran)
+    if (!req.file) {
+        return res.status(400).json({ error: 'No audio file uploaded (Middleware Error?).' });
+    }
+
+    const userId = req.user.id;
+    const tempFilePath = req.file.path; // Path where multer saved the file (no extension)
+    let finalFilePath = tempFilePath; // Initialize final path, might be renamed
+
+    console.log(`[Request] POST /converse/audio - User: ${userId}, Temp file received: ${tempFilePath}`);
+
+    try {
+        // --- Rename file to add extension ---
+        const fileExtension = '.webm'; // Based on typical browser recording format
+        const newFilePath = tempFilePath + fileExtension;
+
+        console.log(`[File Handling] Renaming temp file from ${tempFilePath} to ${newFilePath}`);
+        fs.renameSync(tempFilePath, newFilePath); // Rename the file on disk
+        finalFilePath = newFilePath; // Update the path to use for streaming and cleanup
+        console.log(`[File Handling] File renamed successfully.`);
+        // --- End Rename ---
+
+        // 1. Transcribe Audio using Groq STT
+        console.log(`[STT] Calling Groq STT API (${STT_MODEL}) for file: ${finalFilePath}`);
+        const transcription = await groq.audio.transcriptions.create({
+            file: fs.createReadStream(finalFilePath), // Use the path with the extension
+            model: STT_MODEL, // Ensure STT_MODEL is defined in the outer scope
+            response_format: "json", // Expect { text: "..." }
+        });
+
+        const transcribedText = transcription?.text; // Use optional chaining for safety
+
+        // Prepare variables for the response
+        let userSaidText = "";
+        let botResponseText = "";
+
+        // Check transcription result
+        if (!transcribedText || transcribedText.trim() === '') {
+            console.log("[STT] Transcription resulted in empty text.");
+            userSaidText = "[Audio input unclear]"; // Placeholder for UI
+            botResponseText = "I couldn't make out any speech in that recording. Could you please try speaking clearly?";
+            // Directly send the response for unclear audio
+            res.status(200).json({
+                 transcribedText: userSaidText,
+                 reply: botResponseText
+            });
+
+        } else {
+            // Transcription successful, process with chatbot logic
+            userSaidText = transcribedText.trim();
+            console.log(`[STT] Groq STT successful. Transcribed Text (${userSaidText.length} chars): "${userSaidText.substring(0, 100)}..."`);
+            console.log(`[Request] Passing transcribed text to chatbot logic for user ${userId}...`);
+
+            // Call the main chatbot logic function (ensure it's defined/imported)
+            botResponseText = await getChatbotResponse(userId, userSaidText);
+
+            // Send BOTH the user's transcribed text AND the bot's reply
+            res.status(200).json({
+                 transcribedText: userSaidText,
+                 reply: botResponseText
+            });
+        }
+
+    } catch (error) {
+        // Log detailed error for server diagnostics
+        console.error("[STT/Audio Error] Error during audio processing or STT:", error.response ? JSON.stringify(error.response.data) : error.message);
+        console.error(error); // Log the full error object
+        // Send a generic error message to the client
+        res.status(500).json({ error: 'Failed to process audio message due to an internal server error.' });
+
+    } finally {
+        // Cleanup the final file path (renamed or original temp if rename failed)
+        fs.unlink(finalFilePath, (err) => {
+            if (err) {
+                // Attempt cleanup only if file exists, avoiding unnecessary errors
+                if (fs.existsSync(finalFilePath)) {
+                    console.error(`[Cleanup] Error deleting audio file ${finalFilePath}:`, err);
+                } else if (finalFilePath !== tempFilePath && fs.existsSync(tempFilePath)) {
+                     // If rename likely failed and original temp file exists, try deleting that
+                     fs.unlink(tempFilePath, (err2) => {
+                         if(err2) console.error(`[Cleanup] Error deleting original temp audio file ${tempFilePath}:`, err2);
+                         else console.log(`[Cleanup] Deleted original temp audio file after rename error: ${tempFilePath}`);
+                     });
+                } else {
+                     // File doesn't exist, likely already cleaned or failed creation/rename
+                     console.log(`[Cleanup] Audio file ${finalFilePath} not found for deletion (already deleted or did not exist).`);
+                }
+            } else {
+                console.log(`[Cleanup] Deleted audio file: ${finalFilePath}`);
+            }
+        });
+    }
+}
+
 
 // --- Set up Express Router ---
 const router = express.Router();
@@ -278,25 +380,8 @@ router.post('/converse', asyncHandler(async (req, res) => { /* ... Text Handler 
     const botResponse = await getChatbotResponse(userId, message.trim());
     res.status(200).json({ reply: botResponse });
 }));
-router.post('/converse/audio', upload.single('audio'), asyncHandler(async (req, res) => { /* ... Audio Handler ... */
-    if (!req.user || !req.user.id) { if (req.file) fs.unlinkSync(req.file.path); return res.status(401).json({ error: 'User authentication required.' }); }
-    if (!req.file) return res.status(400).json({ error: 'No audio file uploaded.' });
-    const userId = req.user.id; const audioFilePath = req.file.path;
-    console.log(`[Request] POST /converse/audio - User: ${userId}, File received: ${audioFilePath}`);
-    try {
-        console.log(`[STT] Calling Groq STT API (${STT_MODEL}) for file: ${audioFilePath}`);
-        const transcription = await groq.audio.transcriptions.create({ file: fs.createReadStream(audioFilePath), model: STT_MODEL, response_format: "json", });
-        const transcribedText = transcription?.text;
-        if (!transcribedText || transcribedText.trim() === '') { console.log("[STT] Transcription resulted in empty text."); res.status(200).json({ reply: "I couldn't make out any speech in that recording. Could you please try speaking clearly?" }); }
-        else {
-            console.log(`[STT] Groq STT successful. Transcribed Text (${transcribedText.length} chars): "${transcribedText.substring(0, 100)}..."`);
-            console.log(`[Request] Passing transcribed text to chatbot logic for user ${userId}...`);
-            const botResponse = await getChatbotResponse(userId, transcribedText.trim());
-            res.status(200).json({ reply: botResponse });
-        }
-    } catch (error) { console.error("[STT/Audio Error] Error during audio processing or STT:", error.response ? JSON.stringify(error.response.data) : error.message); res.status(500).json({ error: 'Failed to process audio message due to an internal server error.' }); }
-    finally { fs.unlink(audioFilePath, (err) => { if (err) console.error(`[Cleanup] Error deleting temp audio file ${audioFilePath}:`, err); else console.log(`[Cleanup] Deleted temp audio file: ${audioFilePath}`); }); }
-}));
+// Within the same file, after defining the function and router/upload:
+router.post('/converse/audio', upload.single('audio'), asyncHandler(handleAudioMessage));
 router.get('/history', asyncHandler(async (req, res) => { /* ... History Handler ... */
     if (!req.user || !req.user.id) return res.status(401).json({ error: 'User authentication required.' });
     const userId = req.user.id;

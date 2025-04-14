@@ -1,11 +1,11 @@
-// src/pages/ChatbotPage.jsx (or components/ChatbotPage.jsx)
+// src/components/Chatbot.js
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 
 // Basic styling (consider moving to a CSS file or styled-components)
 const styles = {
-    pageContainer: {
+    pageContainer: { // Assuming this component might fill a page section
         display: 'flex',
         justifyContent: 'center',
         padding: '20px',
@@ -20,6 +20,7 @@ const styles = {
         display: 'flex',
         flexDirection: 'column',
         backgroundColor: '#f9f9f9',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)', // Added subtle shadow
     },
     messagesArea: {
         flexGrow: 1,
@@ -31,38 +32,38 @@ const styles = {
         padding: '10px',
         borderRadius: '5px',
         display: 'flex',
-        flexDirection: 'column', // Allows messages to stack
+        flexDirection: 'column',
     },
     messageBubbleUser: {
-        alignSelf: 'flex-end', // Align right
+        alignSelf: 'flex-end',
         margin: '5px 0',
         padding: '10px 15px',
-        backgroundColor: '#dcf8c6', // Light green
-        borderRadius: '15px 15px 0 15px', // Rounded corners
+        backgroundColor: '#dcf8c6',
+        borderRadius: '15px 15px 0 15px',
         maxWidth: '80%',
-        wordWrap: 'break-word', // Ensure long words wrap
-        whiteSpace: 'pre-wrap', // Preserve whitespace/newlines
+        wordWrap: 'break-word',
+        whiteSpace: 'pre-wrap',
     },
     messageBubbleBot: {
-        alignSelf: 'flex-start', // Align left
+        alignSelf: 'flex-start',
         margin: '5px 0',
         padding: '10px 15px',
-        backgroundColor: '#eeeeee', // Light gray
-        borderRadius: '15px 15px 15px 0', // Rounded corners
+        backgroundColor: '#eeeeee',
+        borderRadius: '15px 15px 15px 0',
         maxWidth: '80%',
         wordWrap: 'break-word',
         whiteSpace: 'pre-wrap',
     },
     inputArea: {
         display: 'flex',
-        alignItems: 'center', // Vertically align items
+        alignItems: 'center',
         marginTop: '10px',
     },
     inputField: {
         flexGrow: 1,
         padding: '10px',
         border: '1px solid #ccc',
-        borderRadius: '20px', // Rounded input field
+        borderRadius: '20px',
         marginRight: '10px',
         fontSize: '1rem',
     },
@@ -70,36 +71,34 @@ const styles = {
         padding: '10px 15px',
         cursor: 'pointer',
         border: 'none',
-        borderRadius: '50%', // Circular buttons
+        borderRadius: '50%',
         backgroundColor: '#007bff',
         color: 'white',
-        fontSize: '1.2rem', // Icon size
+        fontSize: '1.2rem',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: '40px', // Fixed width
-        height: '40px', // Fixed height
+        width: '40px',
+        height: '40px',
         marginLeft: '5px',
         transition: 'background-color 0.2s ease',
+        flexShrink: 0, // Prevent buttons from shrinking
     },
-    sendButton: {
-        // Inherits from button, specific overrides if needed
-    },
+    sendButton: {},
     recordButton: {
-        // Inherits from button
-        backgroundColor: '#6c757d', // Gray for record button
+        backgroundColor: '#6c757d',
     },
     recordButtonRecording: {
-        // Inherits from button
-        backgroundColor: '#dc3545', // Red when recording
+        backgroundColor: '#dc3545',
     },
     buttonDisabled: {
         backgroundColor: '#adb5bd',
         cursor: 'not-allowed',
+        opacity: 0.7,
     },
     statusArea: {
         textAlign: 'center',
-        minHeight: '20px', // Reserve space for status
+        minHeight: '20px',
         fontSize: '0.9em',
         color: '#6c757d',
         marginTop: '5px',
@@ -107,90 +106,111 @@ const styles = {
 };
 
 // --- Main Component ---
-function ChatbotPage() {
+function Chatbot() {
     // State
-    const [messages, setMessages] = useState([]); // { role: 'user'/'assistant', content: '...' }
+    const [messages, setMessages] = useState([]); // Stores { role: 'user'/'assistant', content: '...' }
     const [inputText, setInputText] = useState('');
-    const [isLoading, setIsLoading] = useState(true); // Start true for initial history load
+    const [isLoading, setIsLoading] = useState(true); // For initial history load and API calls
     const [isRecording, setIsRecording] = useState(false);
-    const [error, setError] = useState(null); // Store general errors
+    const [error, setError] = useState(null); // Store user-facing errors
 
     // Refs
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
-    const messagesEndRef = useRef(null); // Ref to auto-scroll target
+    const messagesEndRef = useRef(null); // Ref for auto-scrolling
 
     // --- Helper: Get Auth Token ---
     const getToken = useCallback(() => {
-        const token = localStorage.getItem('focusGuardianToken');
-        if (!token) {
-            setError("Authentication error: No token found. Please log in.");
-            setIsLoading(false); // Stop loading if no token
+        try {
+            const token = localStorage.getItem('focusGuardianToken');
+            if (!token) {
+                console.error("Authentication token not found in localStorage.");
+                setError("Authentication error: Please log in again.");
+                setIsLoading(false);
+                return null;
+            }
+            return token;
+        } catch (e) {
+             console.error("Error accessing localStorage:", e);
+             setError("Error accessing local storage. Please check browser settings.");
+             setIsLoading(false);
+             return null;
         }
-        return token;
-    }, []);
-
-    // --- Helper: Add Message to UI ---
-    // Use useCallback to prevent unnecessary re-renders if passed as prop later
-    const addMessage = useCallback((newMessage) => {
-        // Backend uses 'assistant', frontend uses 'bot' for styling sometimes.
-        // Let's align: Use 'user' and 'assistant' internally.
-        const role = newMessage.sender === 'bot' ? 'assistant' : newMessage.sender;
-        setMessages(prevMessages => [...prevMessages, { role, content: newMessage.text }]);
     }, []);
 
     // --- Effect: Fetch Initial Chat History ---
     useEffect(() => {
+        let isMounted = true; // Flag to prevent state update on unmounted component
         const fetchHistory = async () => {
-            setError(null); // Clear previous errors
+            setError(null);
+            setIsLoading(true); // Ensure loading state is true
             const token = getToken();
-            if (!token) return; // Stop if no token
+            if (!token) {
+                if (isMounted) setIsLoading(false); // Stop loading if no token early
+                return;
+            }
 
             console.log("Fetching chat history...");
             try {
                 const config = {
                     headers: { 'Authorization': `Bearer ${token}` }
                 };
-                const response = await axios.get('/api/chat/history', config);
+                const response = await axios.get('/api/chat/history', config); // Use absolute path or configure baseURL
 
-                if (response.data && Array.isArray(response.data.messages)) {
-                     console.log(`Fetched ${response.data.messages.length} messages.`);
-                     // Map backend structure {role, content} to {sender, text} if needed for consistency,
-                     // but let's stick to {role, content} which matches backend/history model better.
-                     setMessages(response.data.messages); // Assuming backend returns { role: 'user'/'assistant', content: '...' }
-                } else {
-                    setMessages([]); // Start empty if no history or invalid format
+                if (isMounted) {
+                    if (response.data && Array.isArray(response.data.messages)) {
+                        console.log(`Fetched ${response.data.messages.length} messages.`);
+                        // Ensure messages have role and content
+                        const validMessages = response.data.messages.filter(m => m && m.role && m.content);
+                        setMessages(validMessages);
+                    } else {
+                        console.log("No history found or invalid format.");
+                        setMessages([]);
+                    }
                 }
             } catch (err) {
                 console.error("Error fetching chat history:", err);
-                setError(err.response?.data?.error || err.message || "Failed to load chat history.");
-                setMessages([]); // Clear messages on error
+                if (isMounted) {
+                    const errMsg = err.response?.data?.error || err.message || "Failed to load chat history.";
+                     if (err.response?.status === 401) {
+                         setError("Authentication error loading history. Please log in again.");
+                     } else {
+                         setError(errMsg);
+                     }
+                    setMessages([]);
+                }
             } finally {
-                setIsLoading(false);
+                if (isMounted) {
+                    setIsLoading(false);
+                }
             }
         };
 
         fetchHistory();
+
+        return () => {
+            isMounted = false; // Cleanup function to set flag on unmount
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // Empty dependency array means run once on mount
+    }, []); // Depend on getToken if it might change, but likely just needs mount
 
     // --- Effect: Auto-scroll to Bottom ---
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]); // Scroll whenever messages array changes
+    }, [messages]);
 
     // --- Handler: Send Text Message ---
     const handleSendMessage = useCallback(async () => {
         const messageText = inputText.trim();
-        if (!messageText || isLoading || isRecording) return; // Prevent sending empty or while busy
+        if (!messageText || isLoading || isRecording) return;
 
         setError(null);
         const token = getToken();
         if (!token) return;
 
         const userMessage = { role: 'user', content: messageText };
-        setMessages(prevMessages => [...prevMessages, userMessage]); // Add user message immediately
-        setInputText(''); // Clear input field
+        setMessages(prevMessages => [...prevMessages, userMessage]);
+        setInputText('');
         setIsLoading(true);
 
         console.log('Sending text message:', messageText);
@@ -201,77 +221,66 @@ function ChatbotPage() {
                     'Authorization': `Bearer ${token}`
                 }
             };
+            // Use absolute path or ensure axios baseURL is configured
             const response = await axios.post('/api/chat/converse', { message: messageText }, config);
 
             if (response.data && response.data.reply) {
                 const botMessage = { role: 'assistant', content: response.data.reply };
                 setMessages(prevMessages => [...prevMessages, botMessage]);
             } else {
+                console.error("Invalid response structure from server:", response.data);
                 throw new Error("Invalid response structure from server.");
             }
         } catch (err) {
             console.error("Error sending text message:", err);
             const errorMessage = err.response?.data?.error || err.message || "Failed to send message.";
-            setError(errorMessage); // Set general error state
-            // Optionally add error message to chat:
-            // const errorMsg = { role: 'assistant', content: `Error: ${errorMessage}` };
-            // setMessages(prevMessages => [...prevMessages, errorMsg]);
+            if (err.response?.status === 401) {
+                 setError("Authentication error. Please log in again.");
+             } else {
+                 setError(errorMessage);
+             }
+            // Remove the optimistic user message on error? Optional.
+            // setMessages(prev => prev.slice(0, -1));
         } finally {
             setIsLoading(false);
         }
-    }, [inputText, isLoading, isRecording, getToken]);
+    }, [inputText, isLoading, isRecording, getToken]); // Include getToken if needed
 
     // --- Handler: Start Audio Recording ---
     const handleStartRecording = useCallback(async () => {
         if (isRecording || isLoading) return;
-
         setError(null);
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            audioChunksRef.current = []; // Reset chunks
-            // Use a common MIME type, check backend compatibility if needed
-            const options = { mimeType: 'audio/webm;codecs=opus' };
+            audioChunksRef.current = [];
+            const options = { mimeType: 'audio/webm;codecs=opus' }; // Prefer opus if available
             let recorder;
-            try {
-                recorder = new MediaRecorder(stream, options);
-            } catch (e1) {
-                 console.warn(`mimeType ${options.mimeType} not supported, trying default.`);
-                 try {
-                    recorder = new MediaRecorder(stream); // Try default
-                 } catch (e2) {
-                    console.error("MediaRecorder not supported:", e2);
-                    setError("Audio recording is not supported by your browser.");
-                    return;
-                 }
+            try { recorder = new MediaRecorder(stream, options); }
+            catch (e1) {
+                console.warn(`mimeType ${options.mimeType} not supported, trying default.`);
+                try { recorder = new MediaRecorder(stream); }
+                catch (e2) { console.error("MediaRecorder not supported:", e2); setError("Audio recording is not supported by your browser."); return; }
             }
-             mediaRecorderRef.current = recorder;
-
+            mediaRecorderRef.current = recorder;
 
             mediaRecorderRef.current.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    audioChunksRef.current.push(event.data);
-                }
+                if (event.data.size > 0) { audioChunksRef.current.push(event.data); }
             };
 
+            // --- **** UPDATED onstop handler **** ---
             mediaRecorderRef.current.onstop = async () => {
                 console.log("Recording stopped, processing audio...");
                 const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorderRef.current.mimeType || 'audio/webm' });
-                audioChunksRef.current = []; // Clear chunks
+                audioChunksRef.current = [];
+                stream.getTracks().forEach(track => track.stop()); // Release microphone
 
-                // Stop the tracks on the stream to turn off the mic indicator
-                stream.getTracks().forEach(track => track.stop());
-
-                // Send Blob to Backend
                 const formData = new FormData();
-                formData.append('audio', audioBlob, 'user_audio.webm'); // Key 'audio' must match multer backend
+                formData.append('audio', audioBlob, 'user_audio.webm'); // Filename hint helps server sometimes
 
                 const token = getToken();
-                if (!token) {
-                    setIsLoading(false);
-                    return; // Stop if token became invalid
-                }
+                if (!token) { setIsLoading(false); return; }
 
-                setIsLoading(true); // Start loading *before* API call
+                setIsLoading(true); // Show loading state
                 try {
                     const config = {
                         headers: {
@@ -280,22 +289,51 @@ function ChatbotPage() {
                         },
                     };
                     console.log("Sending audio data to backend...");
+                    // Use absolute path or ensure axios baseURL is configured
                     const response = await axios.post('/api/chat/converse/audio', formData, config);
 
-                    if (response.data && response.data.reply) {
-                        const botMessage = { role: 'assistant', content: response.data.reply };
-                        setMessages(prevMessages => [...prevMessages, botMessage]);
+                    // --- Add BOTH user's transcribed text and bot's reply ---
+                    const newMessagesToAdd = [];
+                    if (response.data) {
+                        // Check if user "said" something meaningful (check against backend placeholders)
+                        const transcribed = response.data.transcribedText;
+                        const backendPlaceholders = ["[Silent Recording]", "[Audio input unclear]"];
+                        if (transcribed && !backendPlaceholders.includes(transcribed)) {
+                             newMessagesToAdd.push({ role: 'user', content: transcribed });
+                             console.log("Adding user's transcribed message:", transcribed);
+                        } else {
+                             console.log("Transcription was empty or placeholder, not adding user message bubble.");
+                             // Optionally add a visual cue like:
+                             // newMessagesToAdd.push({ role: 'user', content: '🎤 [Audio Sent]' });
+                        }
+                        // Always add the bot's reply if it exists
+                        if (response.data.reply) {
+                             newMessagesToAdd.push({ role: 'assistant', content: response.data.reply });
+                             console.log("Adding assistant's reply:", response.data.reply);
+                        }
                     } else {
-                        throw new Error("Invalid response structure after audio upload.");
+                         console.error("Empty response data received from server after audio upload.");
+                         throw new Error("Empty response data received from server after audio upload.");
                     }
+
+                    if (newMessagesToAdd.length > 0) {
+                        setMessages(prevMessages => [...prevMessages, ...newMessagesToAdd]);
+                    }
+                    // ----------------------------------------------------------
+
                 } catch (err) {
                     console.error("Error sending audio:", err);
-                    const errorMessage = err.response?.data?.error || err.message || "Failed to process audio.";
-                    setError(errorMessage);
+                     const errorMessage = err.response?.data?.error || err.message || "Failed to process audio.";
+                     if (err.response?.status === 401) {
+                         setError("Authentication error. Please log in again.");
+                     } else {
+                         setError(errorMessage);
+                     }
                 } finally {
-                    setIsLoading(false);
+                    setIsLoading(false); // Stop loading indicator
                 }
             };
+            // --- **** END UPDATED onstop handler **** ---
 
             mediaRecorderRef.current.start();
             setIsRecording(true);
@@ -303,100 +341,97 @@ function ChatbotPage() {
 
         } catch (err) {
             console.error("Error accessing microphone:", err);
-             if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                 setError("Microphone access denied. Please allow access in your browser settings.");
-             } else {
-                 setError("Could not start recording. Ensure microphone is connected and permissions are granted.");
-             }
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') { setError("Microphone access denied. Please allow access in your browser settings."); }
+            else { setError("Could not start recording. Ensure microphone is connected and permissions are granted."); }
         }
-    }, [isRecording, isLoading, getToken]);
+    }, [isRecording, isLoading, getToken]); // Dependencies for useCallback
 
     // --- Handler: Stop Audio Recording ---
     const handleStopRecording = useCallback(() => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-            mediaRecorderRef.current.stop();
-            // Processing and sending happens in the 'onstop' handler
-            setIsRecording(false); // Update state immediately
-            // Note: isLoading will be set true inside the onstop handler before API call
+            mediaRecorderRef.current.stop(); // Triggers the onstop handler above
+            setIsRecording(false); // Update UI state immediately
         }
     }, []);
 
-
     // --- Handler: Enter Key Press ---
     const handleKeyPress = (event) => {
-        if (event.key === 'Enter' && !isLoading && !isRecording) {
+        if (event.key === 'Enter' && !isLoading && !isRecording && inputText.trim()) { // Also check if input is not empty
             handleSendMessage();
         }
     };
 
     // --- Render ---
     return (
-        <div style={styles.pageContainer}>
-            <div style={styles.chatContainer}>
-                {/* Messages Area */}
-                <div style={styles.messagesArea}>
-                    {isLoading && messages.length === 0 && <p>Loading history...</p>}
-                    {messages.map((msg, index) => (
-                        <div
-                            key={index}
-                            style={msg.role === 'user' ? styles.messageBubbleUser : styles.messageBubbleBot}
-                        >
-                            {msg.content}
-                        </div>
-                    ))}
-                    {/* Invisible element to scroll to */}
-                    <div ref={messagesEndRef} />
-                </div>
-
-                 {/* Status Area */}
-                 <div style={styles.statusArea}>
-                    {isRecording && "Recording audio..."}
-                    {isLoading && !isRecording && "Waiting for response..."}
-                    {error && <span style={{ color: 'red' }}>Error: {error}</span>}
-                 </div>
-
-
-                {/* Input Area */}
-                <div style={styles.inputArea}>
-                    <input
-                        type="text"
-                        value={inputText}
-                        onChange={(e) => setInputText(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                        style={styles.inputField}
-                        placeholder="Ask something or record audio..."
-                        disabled={isLoading || isRecording}
-                    />
-                    {/* Record Button */}
-                    <button
-                        onClick={isRecording ? handleStopRecording : handleStartRecording}
-                        style={{
-                            ...styles.button,
-                            ...(isRecording ? styles.recordButtonRecording : styles.recordButton),
-                            ...(isLoading && !isRecording ? styles.buttonDisabled : {}) // Disable if loading but not recording
-                        }}
-                        disabled={isLoading && !isRecording} // Disable if loading but not recording
-                        title={isRecording ? "Stop Recording" : "Record Audio"}
+        // Removed outer page container assuming this is just the component
+        <div style={styles.chatContainer}>
+            {/* Messages Area */}
+            <div style={styles.messagesArea}>
+                {/* Optional: Show loading indicator for history */}
+                {isLoading && messages.length === 0 && <p style={{textAlign: 'center', color: '#888'}}>Loading history...</p>}
+                {/* Render messages */}
+                {messages.map((msg, index) => (
+                    <div
+                        key={index} // Using index is okay for chat if messages aren't reordered/deleted
+                        style={msg.role === 'user' ? styles.messageBubbleUser : styles.messageBubbleBot}
                     >
-                        🎤 {/* Microphone Icon */}
-                    </button>
-                    {/* Send Button */}
-                    <button
-                        onClick={handleSendMessage}
-                        style={{
-                            ...styles.button,
-                            ...styles.sendButton,
-                            ...(isLoading || isRecording || !inputText.trim() ? styles.buttonDisabled : {})
-                        }}
-                        disabled={isLoading || isRecording || !inputText.trim()}
-                        title="Send Message"
-                    >
-                        ➤ {/* Send Icon */}
-                    </button>
-                </div>
+                        {msg.content}
+                    </div>
+                ))}
+                {/* Invisible element to scroll to */}
+                <div ref={messagesEndRef} />
+            </div>
+
+             {/* Status Area: Shows errors or current action */}
+             <div style={styles.statusArea}>
+                {isRecording && "Recording audio..."}
+                {isLoading && !isRecording && "Assistant is thinking..."} {/* Changed loading text */}
+                {error && <span style={{ color: '#dc3545', fontWeight: 'bold' }}>Error: {error}</span>} {/* Style error */}
+             </div>
+
+            {/* Input Area */}
+            <div style={styles.inputArea}>
+                <input
+                    type="text"
+                    value={inputText}
+                    onChange={(e) => setInputText(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    style={styles.inputField}
+                    placeholder="Ask something or record audio..."
+                    disabled={isLoading || isRecording} // Disable input while loading or recording
+                    aria-label="Chat input"
+                />
+                {/* Record Button */}
+                <button
+                    onClick={isRecording ? handleStopRecording : handleStartRecording}
+                    style={{
+                        ...styles.button,
+                        ...(isRecording ? styles.recordButtonRecording : styles.recordButton),
+                        ...(isLoading && !isRecording ? styles.buttonDisabled : {})
+                    }}
+                    disabled={isLoading && !isRecording} // Prevent recording while bot is thinking
+                    title={isRecording ? "Stop Recording" : "Record Audio"}
+                    aria-label={isRecording ? "Stop Recording" : "Record Audio"}
+                >
+                    🎤
+                </button>
+                {/* Send Button */}
+                <button
+                    onClick={handleSendMessage}
+                    style={{
+                        ...styles.button,
+                        ...styles.sendButton,
+                        ...(isLoading || isRecording || !inputText.trim() ? styles.buttonDisabled : {}) // Disable if loading, recording, or empty input
+                    }}
+                    disabled={isLoading || isRecording || !inputText.trim()}
+                    title="Send Message"
+                    aria-label="Send Message"
+                >
+                    ➤
+                </button>
             </div>
         </div>
     );
 }
 
-export default ChatbotPage;
+export default Chatbot; // Changed export name to match file reference
