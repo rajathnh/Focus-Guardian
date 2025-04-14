@@ -1,4 +1,4 @@
-// controllers/chatController.js
+// controllers/chatController.js (or routes/chatRoutes.js if you prefer)
 
 require("dotenv").config(); // Ensure environment variables are loaded
 const express = require('express');
@@ -17,274 +17,245 @@ const ChatHistory = require('../models/ChatHistory');
 
 // --- Initialize Groq Client ---
 if (!process.env.GROQ_API_KEY) {
-    throw new Error("GROQ_API_KEY is not defined in the environment variables.");
+    console.error("FATAL ERROR: GROQ_API_KEY is not defined in the environment variables.");
+    process.exit(1); // Exit if key is missing
 }
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 // --- Configuration ---
-const MAX_HISTORY_MESSAGES = 10; // How many past messages (User+Assistant turns) to send to LLM
-const REFRESH_INTERVAL = 10;     // Send System Prompt + Stats every N *database* messages
-const LLM_MODEL = "llama3-8b-8192"; // Or "mixtral-8x7b-32768" or other Groq LLM
+const MAX_HISTORY_MESSAGES = 25; // Keep increased history context
+// REFRESH_INTERVAL is removed as context is sent always
+const LLM_MODEL = "llama3-8b-8192"; // Or "mixtral-8x7b-32768"
 const STT_MODEL = "whisper-large-v3-turbo"; // Groq STT model
 
 // --- System Prompt for the LLM ---
+// --- REFINED System Prompt (Improved Flow & Friendliness) ---
+// --- ***** REVISED System Prompt (More Realistic Tone) ***** ---
 const systemMessage = `
-You are the Focus Guardian Assistant, a helpful AI companion integrated within the Focus Guardian application. Your purpose is to help users understand their productivity patterns based on data collected *today*.
+You are the Focus Guardian Assistant, a helpful AI companion integrated within the Focus Guardian application. Your primary goal is to help users reflect on their productivity patterns, offering **objective insights, encouragement, and constructive feedback** based on collected data.
 
-Key Responsibilities:
-1.  **Analyze Today's Data:** You will periodically receive the user's aggregated focus time, distraction time, focus percentage, and top applications used *for the current day*. Use this data as the primary basis for your responses when available.
-2.  **Answer User Questions:** Respond to user queries about their focus, distractions, app usage, and productivity trends *for today*, using the provided data and conversation history.
-3.  **Provide Insights & Encouragement:** Offer simple observations based on the data (e.g., "You had a solid focus period this morning," "Looks like 'Slack' took up a significant amount of time today"). Be positive and encouraging.
-4.  **Maintain Conversation:** Use the provided chat history to understand the ongoing dialogue.
-5.  **Keep it Concise:** Provide brief, clear answers. Avoid overly complex analysis unless specifically asked.
-6.  **Data Scope:** Primarily focus your analysis and responses on the provided *daily* statistics and recent conversation. Do not invent historical data beyond what's given. If asked about previous days or trends not in the context, politely state you focus on the current conversation and recent daily data.
-7.  **Identity:** Always identify yourself as the Focus Guardian Assistant if asked.
-8.  **Tone:** Be friendly, supportive, and slightly analytical.
-9.  **Multilingual:** If the user communicates in a language other than English that you understand, please respond in that same language.
+**--- Core Identity & Behavior ---**
+1.  **Your Identity:** You are the Focus Guardian Assistant.
+2.  **Greeting:** When the user starts the chat or sends a simple greeting (like 'hi', 'hello'), introduce yourself briefly and ask how you can help. Do NOT immediately summarize all productivity data unless the user explicitly asks for it.
+3.  **Tone:** Be friendly, supportive, and analytical. Provide encouragement, but also offer **objective, realistic observations based on the data's scale and context.** Acknowledge both strengths (like high focus percentages) and areas for improvement (like short durations or high distraction). Be direct but constructive. Avoid overly enthusiastic praise for minimal achievements (e.g., very short focus sessions). Keep responses concise.
+4.  **Multilingual:** If the user communicates in a language other than English that you understand, respond in that same language.
+5.  **Data Source:** You will receive a productivity update message (role 'system') in the context of each API call. This contains data for Yesterday, Today, Last Completed Session, and Current Session Status. **Always use the specific, real values from THIS update when discussing performance.** Do NOT use placeholders like 'X', 'Y', '[App Name]', etc., unless the data explicitly says 'N/A' or 'No data available'.
+6.  **Data Usage:** Use the provided data context primarily when the user asks direct questions about their performance or stats. Refer to the data context to answer accurately.
+7.  **Offering Insights:** Offer simple observations based on the data *when relevant*. **Critically consider both focus *percentage* AND focus *duration*.** Acknowledge high focus percentages, but if the duration is very short (e.g., under a few minutes), frame it realistically (e.g., "a brief moment of concentration," "good focus during that short period") rather than as a major accomplishment. If distraction time is high or focus % is low, point it out constructively and ask follow-up questions.
+8.  **Engaging Questions:** Ask open-ended follow-up questions to encourage reflection (e.g., "What do you think contributed to the distractions?", "That was a short session, was it just a quick check?", "How could you extend focus periods like that one?").
+9.  **No Data Scenario:** If the data context indicates "No session data recorded" for a period the user asks about, state that clearly and politely. Do not invent data.
 
-Example Interaction (when data is provided):
-User: How did I do today?
-Assistant (with data context): Based on the latest stats, today you achieved X minutes of focus time and had Y minutes of distraction, resulting in a Z% focus rate. Your top app was [App Name]. Looks like you maintained good focus overall!
+**--- Example Conversational Snippets (Use Actual Data & Realistic Tone) ---**
+
+*   **User Asks "How did I do yesterday?":**
+    Assistant: Okay, checking yesterday's update: you had [Actual Focus Time Yesterday] of focus against [Actual Distraction Time Yesterday] of distraction, giving an overall focus of [Actual Focus % Yesterday]%. Your top app used was [Actual Top App Yesterday]. That [Focus %] is quite [positive adjective like 'solid' or 'good', or neutral 'notable' if low], although the total time tracked was [mention if total time was low or high]. How do you feel about that balance?
+
+*   **User Asks about a Very Short Session (e.g., 8 seconds):**
+    Assistant: That last session was very brief, just 8 seconds on WhatsApp. You maintained 100% focus during that short moment, which shows you can concentrate quickly. However, an 8-second session doesn't represent a significant work block. Was that just a quick check-in?
+
+*   **User Asks about a Session with Low Focus %:**
+    Assistant: Looking at your last completed session, it lasted [Duration] but the focus percentage was [Low Focus %]%. It seems distractions took up a significant portion of that time, with [Top Distraction App/Activity if available] being prominent. What do you think was happening during that session?
 `;
 
 
-// --- Helper Function to Get Today's Stats ---
-// (Included here for completeness, move to utils if preferred)
-async function getDailyStats(userId) {
-    console.log(`Fetching daily stats for userId: ${userId}`);
+// --- Helper Function: Format Seconds to Readable String ---
+function formatDuration(totalSeconds) {
+    if (totalSeconds === undefined || totalSeconds === null || isNaN(totalSeconds)) return 'N/A';
+    totalSeconds = Math.round(totalSeconds);
+    if (totalSeconds < 0) totalSeconds = 0;
+    if (totalSeconds < 60) { return `${totalSeconds}s`; }
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    if (seconds === 0) { return `${minutes}m`; }
+    return `${minutes}m ${seconds}s`;
+}
+
+// --- Helper Function: Get Top App from Usage Map ---
+function getTopApp(appUsageMap) {
+    if (!appUsageMap || !(appUsageMap instanceof Map) || appUsageMap.size === 0) { return "N/A"; }
     try {
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
+        const sortedApps = [...appUsageMap.entries()].sort(([, timeA], [, timeB]) => (timeB || 0) - (timeA || 0));
+        if (sortedApps.length > 0 && sortedApps[0][0]) {
+            const [appName, time] = sortedApps[0];
+            return `${appName} (${formatDuration(time)})`;
+        }
+    } catch (e) { console.error("Error processing appUsageMap in getTopApp:", e, appUsageMap); return "Error"; }
+    return "N/A";
+}
 
-        const todaySessions = await Session.find({
-            userId: new mongoose.Types.ObjectId(userId), // Ensure userId is ObjectId
-            startTime: { $gte: todayStart }
-        }).lean(); // Use lean for performance if not modifying docs
+// --- Helper Function to Get Richer Stats (includes YESTERDAY) ---
+async function getComprehensiveStats(userId) {
+    console.log(`[Stats Fetch] Starting comprehensive stats fetch for userId: ${userId}`);
+    const objectId = new mongoose.Types.ObjectId(userId);
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+    const yesterdayStart = new Date(todayStart); yesterdayStart.setDate(todayStart.getDate() - 1);
+    console.log(`[Stats Fetch] Date Ranges: Today >= ${todayStart.toISOString()}, Yesterday >= ${yesterdayStart.toISOString()} & < ${todayStart.toISOString()}`);
 
-        if (!todaySessions || todaySessions.length === 0) {
-            console.log(`No sessions found today for user ${userId}`);
-            return {
-                totalFocusTime: 0,
-                totalDistractionTime: 0,
-                focusPercentage: 0,
-                topApps: [],
-                message: "No session data recorded yet for today."
-            };
+    let todayAggregatedStats = { totalFocusTimeMinutes: 0, totalDistractionTimeMinutes: 0, focusPercentage: 0, topAppsToday: [], message: "No session data recorded yet for today." };
+    let yesterdayAggregatedStats = { totalFocusTimeMinutes: 0, totalDistractionTimeMinutes: 0, focusPercentage: 0, topAppsYesterday: [], message: "No session data recorded for yesterday." };
+    let lastCompletedSessionSummary = null;
+    let currentActiveSessionStatus = null;
+    let errorMessage = null;
+
+    try {
+        // --- Query Sessions Concurrently ---
+        const [todaySessions, yesterdaySessions, lastSession, activeSession] = await Promise.all([
+            Session.find({ userId: objectId, startTime: { $gte: todayStart } }).lean(),
+            Session.find({ userId: objectId, startTime: { $gte: yesterdayStart, $lt: todayStart } }).lean(),
+            Session.findOne({ userId: objectId, endTime: { $ne: null } }).sort({ endTime: -1 }).lean(),
+            Session.findOne({ userId: objectId, endTime: null }).lean()
+        ]);
+        console.log(`[Stats Fetch] Found ${todaySessions.length} sessions for today.`);
+        console.log(`[Stats Fetch] Found ${yesterdaySessions.length} sessions for yesterday.`);
+
+        // --- Process Today's Sessions ---
+        if (todaySessions.length > 0) {
+            let totalFocusTimeSec = 0, totalDistractionTimeSec = 0; const combinedAppUsage = new Map();
+            todaySessions.forEach(session => { totalFocusTimeSec += session.focusTime || 0; totalDistractionTimeSec += session.distractionTime || 0; if (session.appUsage && typeof session.appUsage === 'object') { Object.entries(session.appUsage).forEach(([appName, time]) => { if (typeof time === 'number' && !isNaN(time)) { combinedAppUsage.set(appName, (combinedAppUsage.get(appName) || 0) + time); } else { console.warn(`[Stats Fetch - Today] Invalid time for app '${appName}': ${time}`); } }); } });
+            const totalTrackedTimeSec = totalFocusTimeSec + totalDistractionTimeSec;
+            todayAggregatedStats = { totalFocusTimeMinutes: Math.round(totalFocusTimeSec / 60), totalDistractionTimeMinutes: Math.round(totalDistractionTimeSec / 60), focusPercentage: totalTrackedTimeSec > 0 ? Math.round((totalFocusTimeSec / totalTrackedTimeSec) * 100) : 0, topAppsToday: Array.from(combinedAppUsage.entries()).sort(([, timeA], [, timeB]) => (timeB || 0) - (timeA || 0)).slice(0, 3).map(([appName, totalTimeSec]) => ({ appName, totalTimeMinutes: Math.round(totalTimeSec / 60) })), message: "Stats calculated successfully." };
+            console.log(`[Stats Fetch] Today's Aggregated: Focus=${todayAggregatedStats.totalFocusTimeMinutes}m, Distraction=${todayAggregatedStats.totalDistractionTimeMinutes}m, Focus%=${todayAggregatedStats.focusPercentage}`);
         }
 
-        let totalFocusTime = 0;
-        let totalDistractionTime = 0;
-        const combinedAppUsage = new Map();
+        // --- Process Yesterday's Sessions ---
+        if (yesterdaySessions.length > 0) {
+             let totalFocusTimeSecY = 0, totalDistractionTimeSecY = 0; const combinedAppUsageY = new Map();
+             yesterdaySessions.forEach(session => { totalFocusTimeSecY += session.focusTime || 0; totalDistractionTimeSecY += session.distractionTime || 0; if (session.appUsage && typeof session.appUsage === 'object') { Object.entries(session.appUsage).forEach(([appName, time]) => { if (typeof time === 'number' && !isNaN(time)) { combinedAppUsageY.set(appName, (combinedAppUsageY.get(appName) || 0) + time); } else { console.warn(`[Stats Fetch - Yesterday] Invalid time for app '${appName}': ${time}`); } }); } });
+             const totalTrackedTimeSecY = totalFocusTimeSecY + totalDistractionTimeSecY;
+             yesterdayAggregatedStats = { totalFocusTimeMinutes: Math.round(totalFocusTimeSecY / 60), totalDistractionTimeMinutes: Math.round(totalDistractionTimeSecY / 60), focusPercentage: totalTrackedTimeSecY > 0 ? Math.round((totalFocusTimeSecY / totalTrackedTimeSecY) * 100) : 0, topAppsYesterday: Array.from(combinedAppUsageY.entries()).sort(([, timeA], [, timeB]) => (timeB || 0) - (timeA || 0)).slice(0, 3).map(([appName, totalTimeSec]) => ({ appName, totalTimeMinutes: Math.round(totalTimeSec / 60) })), message: "Stats calculated successfully." };
+            console.log(`[Stats Fetch] Yesterday's Aggregated: Focus=${yesterdayAggregatedStats.totalFocusTimeMinutes}m, Distraction=${yesterdayAggregatedStats.totalDistractionTimeMinutes}m, Focus%=${yesterdayAggregatedStats.focusPercentage}`);
+        }
 
-        todaySessions.forEach(session => {
-            totalFocusTime += session.focusTime || 0;
-            totalDistractionTime += session.distractionTime || 0;
+        // --- Process Last Completed Session ---
+        if (lastSession) {
+            console.log(`[Stats Fetch] Found last completed session: ${lastSession._id}, ended at ${lastSession.endTime}`);
+            const durationSeconds = lastSession.endTime && lastSession.startTime ? Math.round((lastSession.endTime.getTime() - lastSession.startTime.getTime()) / 1000) : 0;
+            const focusTimeSec = lastSession.focusTime || 0; const distractionTimeSec = lastSession.distractionTime || 0; const totalTimeSec = focusTimeSec + distractionTimeSec; const focusPercentage = totalTimeSec > 0 ? Math.round((focusTimeSec / totalTimeSec) * 100) : 0; const appUsageMap = lastSession.appUsage && typeof lastSession.appUsage === 'object' ? new Map(Object.entries(lastSession.appUsage)) : new Map();
+            lastCompletedSessionSummary = { duration: formatDuration(durationSeconds), focusPercentage: focusPercentage, topApp: getTopApp(appUsageMap), endedAt: lastSession.endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) };
+            console.log(`[Stats Fetch] Last Session Summary: Duration=${lastCompletedSessionSummary.duration}, Focus%=${lastCompletedSessionSummary.focusPercentage}, TopApp=${lastCompletedSessionSummary.topApp}`);
+        } else { console.log("[Stats Fetch] No completed sessions found."); }
 
-            // Ensure appUsage exists and is a Map or object before iterating
-            if (session.appUsage && (session.appUsage instanceof Map || typeof session.appUsage === 'object')) {
-                 // Handle both Map and Object structures (if lean() was used, it's an object)
-                 const appEntries = session.appUsage instanceof Map
-                    ? Array.from(session.appUsage.entries())
-                    : Object.entries(session.appUsage);
-
-                 appEntries.forEach(([appName, time]) => {
-                    if (typeof time === 'number') { // Basic validation
-                         combinedAppUsage.set(appName, (combinedAppUsage.get(appName) || 0) + time);
-                    }
-                 });
-            }
-        });
-
-
-        const totalTrackedTime = totalFocusTime + totalDistractionTime;
-        const focusPercentage = totalTrackedTime > 0 ? Math.round((totalFocusTime / totalTrackedTime) * 100) : 0;
-
-        // Get top N apps (e.g., top 3)
-        const sortedApps = Array.from(combinedAppUsage.entries())
-            .sort(([, timeA], [, timeB]) => timeB - timeA)
-            .slice(0, 3)
-            .map(([appName, totalTime]) => ({ appName, totalTime: Math.round(totalTime / 60) })); // Convert seconds to minutes
-
-
-        console.log(`Calculated daily stats for user ${userId}: Focus=${totalFocusTime}s, Distraction=${totalDistractionTime}s`);
-        return {
-            totalFocusTime: Math.round(totalFocusTime / 60), // Convert seconds to minutes
-            totalDistractionTime: Math.round(totalDistractionTime / 60),
-            focusPercentage,
-            topApps: sortedApps,
-            message: "Stats calculated successfully."
-        };
+        // --- Process Current Active Session ---
+        if (activeSession) {
+             console.log(`[Stats Fetch] Found active session: ${activeSession._id}, started at ${activeSession.startTime}`);
+            const focusTimeSec = activeSession.focusTime || 0; const distractionTimeSec = activeSession.distractionTime || 0;
+            currentActiveSessionStatus = { startTime: activeSession.startTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }), focusTimeSoFar: formatDuration(focusTimeSec), distractionTimeSoFar: formatDuration(distractionTimeSec) };
+             console.log(`[Stats Fetch] Active Session Status: Started=${currentActiveSessionStatus.startTime}, Focus=${currentActiveSessionStatus.focusTimeSoFar}, Distraction=${currentActiveSessionStatus.distractionTimeSoFar}`);
+        } else { console.log("[Stats Fetch] No active session found."); }
 
     } catch (error) {
-        console.error(`Error fetching daily stats for user ${userId}:`, error);
-        // Avoid exposing detailed errors to the LLM context
-        return {
-            error: true,
-            message: "Could not retrieve daily statistics due to an internal error."
-        };
+        console.error(`[Stats Fetch] Error fetching comprehensive stats for user ${userId}:`, error);
+        errorMessage = "Could not retrieve all productivity statistics due to an internal error.";
     }
+    console.log("[Stats Fetch] Finished fetching stats.");
+    return { todayAggregatedStats, yesterdayAggregatedStats, lastCompletedSessionSummary, currentActiveSessionStatus, error: errorMessage };
 }
 
 
-// --- Core LLM Interaction Function (Periodic Stats Context) ---
+// --- Core LLM Interaction Function (Always Sends Context) ---
 async function getChatbotResponse(userId, userMessageContent) {
-    console.log(`getChatbotResponse called for user ${userId}`);
-    // 1. Retrieve or create ChatHistory
+    console.log(`[LLM Process] Start getChatbotResponse for user ${userId}, message: "${userMessageContent.substring(0,50)}..."`);
     let chatHistoryDoc = await ChatHistory.findOne({ userId });
     if (!chatHistoryDoc) {
-        chatHistoryDoc = new ChatHistory({
-            userId,
-            systemMessage: { content: systemMessage, timestamp: new Date() },
-            messages: []
-        });
+         console.log(`[LLM Process] No existing chat history found for user ${userId}, creating new.`);
+        chatHistoryDoc = new ChatHistory({ userId, systemMessage: { content: systemMessage, timestamp: new Date() }, messages: [] });
     }
-    // Ensure system message exists in doc (for older records perhaps)
     if (!chatHistoryDoc.systemMessage || !chatHistoryDoc.systemMessage.content) {
         chatHistoryDoc.systemMessage = { content: systemMessage, timestamp: new Date() };
     }
 
-    // 2. Append the user's message to DB history FIRST
-    const userMessageForDb = {
-        role: "user",
-        content: userMessageContent,
-        timestamp: new Date()
-    };
+    // Append user message to DB FIRST
+    const userMessageForDb = { role: "user", content: userMessageContent, timestamp: new Date() };
     chatHistoryDoc.messages.push(userMessageForDb);
 
-    // --- Prepare Conversation Payload for LLM API ---
-    const messagesFromDb = chatHistoryDoc.messages;
-    const messageCount = messagesFromDb.length; // Current count *including* the message just added
+    // --- Fetch Comprehensive Stats *Every Time* ---
+    console.log(`[LLM Process] Fetching comprehensive stats for context...`);
+    const comprehensiveStats = await getComprehensiveStats(userId);
 
-    // Determine if this turn requires a context refresh
-    const shouldRefreshContext = (messageCount === 1) || ((messageCount - 1) % REFRESH_INTERVAL === 0 && messageCount > 1);
+    // --- Format the stats string *Every Time* ---
+    let statsContextString = "[START CONTEXT FOR AI - PRODUCTIVITY UPDATE]\n";
+    // Yesterday
+    statsContextString += "**Yesterday's Summary:**\n";
+    if (comprehensiveStats.yesterdayAggregatedStats.message === "Stats calculated successfully.") {
+        statsContextString += `- Focus Time: ${comprehensiveStats.yesterdayAggregatedStats.totalFocusTimeMinutes} minutes\n`;
+        statsContextString += `- Distraction Time: ${comprehensiveStats.yesterdayAggregatedStats.totalDistractionTimeMinutes} minutes\n`;
+        statsContextString += `- Overall Focus: ${comprehensiveStats.yesterdayAggregatedStats.focusPercentage}%\n`;
+        if (comprehensiveStats.yesterdayAggregatedStats.topAppsYesterday.length > 0) { statsContextString += `- Top Apps Yesterday: ${comprehensiveStats.yesterdayAggregatedStats.topAppsYesterday.map(app => `${app.appName} (${app.totalTimeMinutes}m)`).join(', ')}\n`; }
+        else { statsContextString += "- Top Apps Yesterday: No specific app usage recorded.\n"; }
+    } else { statsContextString += `- ${comprehensiveStats.yesterdayAggregatedStats.message}\n`; }
+    // Today
+    statsContextString += "\n**Today's Summary:**\n";
+    if(comprehensiveStats.todayAggregatedStats.message === "Stats calculated successfully.") {
+        statsContextString += `- Focus Time: ${comprehensiveStats.todayAggregatedStats.totalFocusTimeMinutes} minutes\n`;
+        statsContextString += `- Distraction Time: ${comprehensiveStats.todayAggregatedStats.totalDistractionTimeMinutes} minutes\n`;
+        statsContextString += `- Overall Focus: ${comprehensiveStats.todayAggregatedStats.focusPercentage}%\n`;
+        if (comprehensiveStats.todayAggregatedStats.topAppsToday.length > 0) { statsContextString += `- Top Apps Today: ${comprehensiveStats.todayAggregatedStats.topAppsToday.map(app => `${app.appName} (${app.totalTimeMinutes}m)`).join(', ')}\n`; }
+        else { statsContextString += "- Top Apps Today: No specific app usage recorded.\n"; }
+    } else { statsContextString += `- ${comprehensiveStats.todayAggregatedStats.message}\n`; }
+    // Last Completed
+    statsContextString += "\n**Last Completed Session:**\n";
+    if (comprehensiveStats.lastCompletedSessionSummary) {
+        statsContextString += `- Duration: ${comprehensiveStats.lastCompletedSessionSummary.duration}\n`;
+        statsContextString += `- Focus Percentage: ${comprehensiveStats.lastCompletedSessionSummary.focusPercentage}%\n`;
+        statsContextString += `- Top App: ${comprehensiveStats.lastCompletedSessionSummary.topApp}\n`;
+        statsContextString += `- Ended At: ${comprehensiveStats.lastCompletedSessionSummary.endedAt}\n`;
+    } else { statsContextString += "- No completed sessions found.\n"; }
+    // Current Active
+    statsContextString += "\n**Current Session Status:**\n";
+    if (comprehensiveStats.currentActiveSessionStatus) {
+        statsContextString += `- Status: ACTIVE\n`;
+        statsContextString += `- Started At: ${comprehensiveStats.currentActiveSessionStatus.startTime}\n`;
+        statsContextString += `- Focus So Far: ${comprehensiveStats.currentActiveSessionStatus.focusTimeSoFar}\n`;
+        statsContextString += `- Distraction So Far: ${comprehensiveStats.currentActiveSessionStatus.distractionTimeSoFar}\n`;
+    } else { statsContextString += "- Status: No session currently active.\n"; }
+    // Error
+    if (comprehensiveStats.error) { statsContextString += `\n**Note:** ${comprehensiveStats.error}\n`; }
+    statsContextString += "[END CONTEXT FOR AI]";
+    console.log("[LLM Process] Generated statsContextString for injection:\n---\n" + statsContextString + "\n---");
 
-    let statsContextString = ""; // Will hold formatted stats only if refreshing
 
-    if (shouldRefreshContext) {
-        console.log(`Context refresh triggered for message count: ${messageCount}. Fetching daily stats...`);
-        const dailyStats = await getDailyStats(userId);
-
-        // Format the stats into a string for the LLM
-        statsContextString = "[START CONTEXT FOR AI - TODAY'S PRODUCTIVITY DATA]\n"; // Clear delimiter
-        if (dailyStats.error) {
-            statsContextString += `Note: ${dailyStats.message}\n`;
-        } else if (dailyStats.totalFocusTime === 0 && dailyStats.totalDistractionTime === 0) {
-            statsContextString += "No focus session data has been recorded yet for today.\n";
-        } else {
-            statsContextString += `- Focus Time: ${dailyStats.totalFocusTime} minutes\n`;
-            statsContextString += `- Distraction Time: ${dailyStats.totalDistractionTime} minutes\n`;
-            statsContextString += `- Focus Percentage: ${dailyStats.focusPercentage}%\n`;
-            if (dailyStats.topApps.length > 0) {
-                statsContextString += `- Top Apps Used (Time in Minutes): ${dailyStats.topApps.map(app => `${app.appName} (${app.totalTime})`).join(', ')}\n`;
-            } else {
-                statsContextString += "- Top Apps: No specific app usage recorded or processed yet today.\n";
-            }
-        }
-        statsContextString += "[END CONTEXT FOR AI]"; // End delimiter
-    }
-
+    // --- Prepare Payload for LLM ---
     const conversationForLLM = [];
+    // 1. Main system prompt
+    conversationForLLM.push({ role: "system", content: chatHistoryDoc.systemMessage.content });
+    // 2. **Inject Stats Context *Every Time***
+    console.log(`[LLM Process] Injecting comprehensive stats update as 'system' message.`);
+    conversationForLLM.push({
+        role: "system",
+        content: statsContextString // Inject the freshly formatted data
+    });
+    // 3. Add recent history messages (comes AFTER system prompts)
+    const messagesFromDb = chatHistoryDoc.messages;
+    const historyStartIndex = Math.max(0, messagesFromDb.length - 1 - MAX_HISTORY_MESSAGES * 2); // Use constant
+    const recentDbMessages = messagesFromDb.slice(historyStartIndex, -1); // Exclude latest user msg
+    console.log(`[LLM Process] Slicing history from index ${historyStartIndex}, adding ${recentDbMessages.length} messages to context.`);
+    recentDbMessages.forEach(msg => { if (msg && msg.role && msg.content) { conversationForLLM.push({ role: msg.role, content: msg.content }); } else { console.warn("[LLM Process] Skipping invalid message in history:", msg); } });
+    // 4. Add the LATEST user message (comes last)
+    conversationForLLM.push({ role: "user", content: userMessageContent });
 
-    // Handle the very first message separately
-    if (messageCount === 1) {
-         console.log("First message, adding initial system prompt and stats.");
-         // Use the system prompt from the DB document
-         conversationForLLM.push({ role: "system", content: chatHistoryDoc.systemMessage.content });
-         // Provide initial stats context as a user message
-         conversationForLLM.push({ role: "user", content: `Here is the initial productivity data for today:\n${statsContextString}` });
-         // Start with the actual user message
-         conversationForLLM.push({ role: "user", content: userMessageContent });
-    } else {
-        // For subsequent messages:
+    // --- Logging Payload Summary ---
+    console.log(`[LLM Call] Preparing ${conversationForLLM.length} total messages for Groq LLM (${LLM_MODEL}).`);
 
-        // Add system prompt (Groq generally prefers 'system' role)
-         conversationForLLM.push({ role: "system", content: chatHistoryDoc.systemMessage.content });
-
-        // Add recent history (user/assistant pairs) up to the limit
-        const historyStartIndex = Math.max(0, messagesFromDb.length - 1 - MAX_HISTORY_MESSAGES * 2); // Go back far enough
-        const recentDbMessages = messagesFromDb.slice(historyStartIndex, -1); // Exclude the latest user msg
-
-        recentDbMessages.forEach(msg => {
-             // Map DB roles to Groq roles ('assistant' -> 'assistant')
-             conversationForLLM.push({
-                 role: msg.role, // Assuming roles are 'user' or 'assistant' in DB
-                 content: msg.content
-             });
-        });
-
-        // Inject Combined Refresh Context (if needed)
-        if (shouldRefreshContext) {
-             console.log(`Injecting combined system prompt reminder and stats update.`);
-            // Combine reminder AND stats into one *assistant* message (simulating context update)
-            // Or keep as user? Let's try user to mimic instruction/data provision.
-            const refreshMessageContent = `[SYSTEM NOTE: Refreshing Instructions and Data]\nReminder of your core instructions and updated productivity data for today:\n${statsContextString}`;
-            conversationForLLM.push({
-                role: "user", // Or system? User seems more direct for instruction/data.
-                content: refreshMessageContent
-            });
-        }
-
-        // Add the LATEST user message
-        conversationForLLM.push({
-            role: "user",
-            content: userMessageContent
-        });
-    }
-
-    // --- Call the LLM API (Groq Chat Completion) ---
+    // --- Call LLM API ---
     try {
-        console.log(`Sending ${conversationForLLM.length} messages to Groq LLM (${LLM_MODEL})...`);
-        // Log payload snippet for debugging (optional)
-        // console.log("LLM Payload Snippet:", JSON.stringify(conversationForLLM).substring(0, 500) + "...");
-
-        const chatCompletion = await groq.chat.completions.create({
-            messages: conversationForLLM,
-            model: LLM_MODEL,
-            temperature: 0.7, // Adjust as needed
-            // max_tokens: 1024, // Optional limit
-            top_p: 1,
-            stream: false,
-        });
-
+        const chatCompletion = await groq.chat.completions.create({ messages: conversationForLLM, model: LLM_MODEL, temperature: 0.7, top_p: 1, stream: false, });
         const botReply = chatCompletion.choices[0]?.message?.content;
-
         if (!botReply || botReply.trim() === '') {
-            console.error("Groq LLM returned empty or null response.");
-             // Append a placeholder/error message to DB?
-            chatHistoryDoc.messages.push({
-                 role: "assistant",
-                 content: "[Error: Assistant failed to generate a response]",
-                 timestamp: new Date()
-            });
-            await chatHistoryDoc.save();
-            return "Sorry, I couldn't generate a response for that. Please try again.";
+             console.error("[LLM Call] Groq LLM returned empty or null response content.");
+             chatHistoryDoc.messages.push({ role: "assistant", content: "[Error: Assistant failed to generate response]", timestamp: new Date() });
+             await chatHistoryDoc.save(); // Save even on error to capture user msg
+             return "Sorry, I seem to be having trouble formulating a response right now. Please try again.";
         }
-
-        console.log("Groq LLM response received.");
-
-        // Append LLM response to DB history
-        chatHistoryDoc.messages.push({
-            role: "assistant",
-            content: botReply,
-            timestamp: new Date(),
-        });
-
-        // Save history including the latest user message and the bot reply
-        await chatHistoryDoc.save();
-        console.log(`Chat history saved for user ${userId}.`);
-
+        console.log(`[LLM Call] Groq LLM response received (${botReply.length} chars).`);
+        chatHistoryDoc.messages.push({ role: "assistant", content: botReply, timestamp: new Date() });
+        await chatHistoryDoc.save(); // Save history AFTER successful call
+        console.log(`[LLM Process] Chat history saved successfully for user ${userId}.`);
         return botReply;
-
     } catch (error) {
-        console.error("Error calling Groq LLM API:", error.response ? JSON.stringify(error.response.data, null, 2) : error.message);
-        let errorMessage = "Sorry, I encountered an error trying to generate a response.";
-        if (error.response && error.response.data && error.response.data.error) {
-             errorMessage += ` (Details: ${error.response.data.error.message})`;
-        }
-        // Optionally save error marker to history
-        // chatHistoryDoc.messages.push({ role: "assistant", content: `[API Error: ${errorMessage}]`, timestamp: new Date() });
-        // await chatHistoryDoc.save(); // Save even on error? Decide policy.
-        return errorMessage; // Return error message to user
+        console.error("[LLM Call] Error calling Groq LLM API:", error.response ? JSON.stringify(error.response.data, null, 2) : error.message);
+        console.error(`[LLM Process] Failed to get response for user ${userId}. Error: ${error.message}`);
+        // Don't save history here as the bot didn't reply successfully
+        return "Sorry, I encountered an error while processing your request. Please try again.";
     }
 }
 
@@ -292,108 +263,51 @@ async function getChatbotResponse(userId, userMessageContent) {
 // --- Set up Express Router ---
 const router = express.Router();
 
-// --- Multer Setup for Audio Uploads ---
-const uploadDir = path.join(__dirname, '../uploads/audio/'); // Place uploads outside controller dir
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-    console.log(`Created audio upload directory: ${uploadDir}`);
-}
-const upload = multer({
-    dest: uploadDir,
-    limits: { fileSize: 40 * 1024 * 1024 } // 40MB limit (matches Groq free tier)
-});
+// --- Multer Setup ---
+const uploadDir = path.join(__dirname, '../uploads/audio/');
+if (!fs.existsSync(uploadDir)) { try { fs.mkdirSync(uploadDir, { recursive: true }); console.log(`[Setup] Created audio upload directory: ${uploadDir}`); } catch (mkdirError) { console.error(`[Setup] FATAL ERROR: Could not create audio upload directory ${uploadDir}. Please check permissions.`, mkdirError); process.exit(1); } }
+const upload = multer({ dest: uploadDir, limits: { fileSize: 40 * 1024 * 1024 } });
+
 
 // --- Route Handlers ---
-
-// POST /api/chat/converse (Handles Text Input)
-router.post('/converse', asyncHandler(async (req, res) => {
-    // Assume auth middleware adds req.user
-    if (!req.user || !req.user.id) {
-        return res.status(401).json({ error: 'User authentication required.' });
-    }
-    const userId = req.user.id;
-    const { message } = req.body;
-
-    if (!message || typeof message !== 'string' || message.trim() === '') {
-        return res.status(400).json({ error: 'Message content is required and must be a non-empty string.' });
-    }
-
-    console.log(`Processing text message for user ${userId}...`);
+router.post('/converse', asyncHandler(async (req, res) => { /* ... Text Handler ... */
+    if (!req.user || !req.user.id) return res.status(401).json({ error: 'User authentication required.' });
+    const userId = req.user.id; const { message } = req.body;
+    if (!message || typeof message !== 'string' || message.trim() === '') return res.status(400).json({ error: 'Message content is required.' });
+    console.log(`[Request] POST /converse - User: ${userId}, Message: "${message.substring(0, 50)}..."`);
     const botResponse = await getChatbotResponse(userId, message.trim());
     res.status(200).json({ reply: botResponse });
 }));
-
-
-// POST /api/chat/converse/audio (Handles Audio Input)
-router.post('/converse/audio', upload.single('audio'), asyncHandler(async (req, res) => {
-    // Assume auth middleware adds req.user
-    if (!req.user || !req.user.id) {
-        // Clean up uploaded file if auth fails early
-        if (req.file) fs.unlinkSync(req.file.path);
-        return res.status(401).json({ error: 'User authentication required.' });
-    }
-     if (!req.file) {
-        return res.status(400).json({ error: 'No audio file uploaded.' });
-    }
-
-    const userId = req.user.id;
-    const audioFilePath = req.file.path;
-    console.log(`Received audio file for user ${userId}: ${audioFilePath}`);
-
+router.post('/converse/audio', upload.single('audio'), asyncHandler(async (req, res) => { /* ... Audio Handler ... */
+    if (!req.user || !req.user.id) { if (req.file) fs.unlinkSync(req.file.path); return res.status(401).json({ error: 'User authentication required.' }); }
+    if (!req.file) return res.status(400).json({ error: 'No audio file uploaded.' });
+    const userId = req.user.id; const audioFilePath = req.file.path;
+    console.log(`[Request] POST /converse/audio - User: ${userId}, File received: ${audioFilePath}`);
     try {
-        // 1. Transcribe Audio using Groq STT
-        console.log(`Calling Groq STT API (${STT_MODEL})...`);
-        const transcription = await groq.audio.transcriptions.create({
-            file: fs.createReadStream(audioFilePath),
-            model: STT_MODEL,
-            response_format: "json", // Get { text: "..." }
-        });
-
-        const transcribedText = transcription.text;
-        console.log(`Groq STT successful. Transcribed Text: "${transcribedText}"`);
-
-        if (!transcribedText || transcribedText.trim() === '') {
-            console.log("Transcription resulted in empty text.");
-            return res.status(200).json({ reply: "I couldn't make out any speech in that recording. Could you please try speaking clearly?" });
+        console.log(`[STT] Calling Groq STT API (${STT_MODEL}) for file: ${audioFilePath}`);
+        const transcription = await groq.audio.transcriptions.create({ file: fs.createReadStream(audioFilePath), model: STT_MODEL, response_format: "json", });
+        const transcribedText = transcription?.text;
+        if (!transcribedText || transcribedText.trim() === '') { console.log("[STT] Transcription resulted in empty text."); res.status(200).json({ reply: "I couldn't make out any speech in that recording. Could you please try speaking clearly?" }); }
+        else {
+            console.log(`[STT] Groq STT successful. Transcribed Text (${transcribedText.length} chars): "${transcribedText.substring(0, 100)}..."`);
+            console.log(`[Request] Passing transcribed text to chatbot logic for user ${userId}...`);
+            const botResponse = await getChatbotResponse(userId, transcribedText.trim());
+            res.status(200).json({ reply: botResponse });
         }
-
-        // 2. Process transcribed text using the conversational logic
-        console.log(`Passing transcribed text to conversational LLM for user ${userId}...`);
-        const botResponse = await getChatbotResponse(userId, transcribedText.trim());
-
-        // 3. Send LLM response back
-        res.status(200).json({ reply: botResponse });
-
-    } catch (error) {
-        console.error("Error during audio processing or STT:", error.response ? JSON.stringify(error.response.data) : error.message);
-        res.status(500).json({ error: 'Failed to process audio message due to an internal error.' }); // User-friendly error
-    } finally {
-        // Clean up the temporary audio file in all cases
-        fs.unlink(audioFilePath, (err) => {
-            if (err) console.error(`Error deleting temp audio file ${audioFilePath}:`, err);
-            else console.log(`Deleted temp audio file: ${audioFilePath}`);
-        });
-    }
+    } catch (error) { console.error("[STT/Audio Error] Error during audio processing or STT:", error.response ? JSON.stringify(error.response.data) : error.message); res.status(500).json({ error: 'Failed to process audio message due to an internal server error.' }); }
+    finally { fs.unlink(audioFilePath, (err) => { if (err) console.error(`[Cleanup] Error deleting temp audio file ${audioFilePath}:`, err); else console.log(`[Cleanup] Deleted temp audio file: ${audioFilePath}`); }); }
 }));
-
-
-// GET /api/chat/history (Get chat history for the logged-in user)
-router.get('/history', asyncHandler(async (req, res) => {
-    // Assume auth middleware adds req.user
-    if (!req.user || !req.user.id) {
-        return res.status(401).json({ error: 'User authentication required.' });
-    }
+router.get('/history', asyncHandler(async (req, res) => { /* ... History Handler ... */
+    if (!req.user || !req.user.id) return res.status(401).json({ error: 'User authentication required.' });
     const userId = req.user.id;
-
-    console.log(`Fetching chat history for user ${userId}`);
-    const chatHistoryDoc = await ChatHistory.findOne({ userId }).lean(); // Use lean for read-only
-
-    // Return only messages, exclude system prompt, etc.
-    const messagesToReturn = chatHistoryDoc ? chatHistoryDoc.messages : [];
-
-    res.status(200).json({ messages: messagesToReturn });
+    console.log(`[Request] GET /history - User: ${userId}`);
+    try {
+        const chatHistoryDoc = await ChatHistory.findOne({ userId }).lean();
+        const messagesToReturn = chatHistoryDoc ? (chatHistoryDoc.messages || []) : [];
+        console.log(`[Request] Found ${messagesToReturn.length} messages in history for user ${userId}.`);
+        res.status(200).json({ messages: messagesToReturn });
+    } catch(dbError) { console.error(`[DB Error] Error fetching chat history for user ${userId}:`, dbError); res.status(500).json({ error: 'Failed to retrieve chat history.' }); }
 }));
-
 
 // --- Export the router ---
-module.exports = router;
+module.exports = router; // Ensure this file is required as the router in app.js
