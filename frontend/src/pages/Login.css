@@ -1,0 +1,213 @@
+/* src/pages/Login.css */
+:root {
+  --primary:       #5B7DB1;
+  --primary-light: #7EC8A5;
+  --secondary:     #FFB677;
+  --dark:          #2D4357;
+  --light:         #FFFFFF;
+  --gray-100:      #F8FAFC;
+  --gray-200:      #E2E8F0;
+  --gray-300:      #CBD5E1;
+  --gray-600:      #475569;
+  --gray-700:      #334155;
+  --gray-800:      #1E293B;
+  --error:         #DC2626;
+  --shadow-sm:     0 1px 3px rgba(0,0,0,0.1);
+  --shadow-md:     0 4px 6px rgba(0,0,0,0.1);
+  --shadow-lg:     0 10px 25px rgba(0,0,0,0.1);
+  --transition:    all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; line-height: 1.5; color: var(--gray-800); background: var(--gray-100); }
+.login-page { display: flex; flex-direction: column; min-height: 100vh; }
+
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  line-height: 1.5;
+  color: var(--gray-800);
+}
+
+
+.login-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: linear-gradient(135deg, rgba(244, 233, 217, 0.98) 0%, rgba(255,254,252,0.98) 100%);
+}
+
+/* Main Content */
+.login-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: 2rem;
+  margin: 2rem 0;
+  margin-top: 4rem;  
+  margin-bottom: 4rem;              
+  background: transparent;
+}
+
+.login-background-pattern {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: radial-gradient(var(--gray-300) 1px, transparent 1px);
+  background-size: 20px 20px;
+  opacity: 0.1;
+  z-index: 0;
+}
+
+.login-form-wrapper {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 480px;
+  background: var(--light);
+  border-left: 4px solid var(--primary);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  transition: var(--transition);
+}
+.login-form-wrapper:hover {
+  box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+  transform: translateY(-2px);
+}
+
+.login-form {
+  background: linear-gradient(145deg, #f8fbfd 0%, #f4f9fc 100%);
+  border-radius: 1rem;
+  padding: 2.5rem;
+  box-shadow: var(--shadow-lg);
+  transition: var(--transition);
+}
+
+.login-form:hover {
+  box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+}
+
+.login-form-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.login-form-header h2 {
+  font-size: 2rem;
+  color: var(--dark);
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.login-form-header p {
+  color: var(--gray-600);
+  font-size: 0.95rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.875rem 1.25rem;
+  border: 1px solid var(--gray-200);
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  transition: var(--transition);
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(91, 125, 177, 0.1);
+}
+
+.form-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  background-color: rgba(220, 38, 38, 0.1);
+  color: var(--error);
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: var(--light);
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  transition: var(--transition);
+}
+
+.login-btn:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.login-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.form-footer {
+  margin-top: 1.5rem;
+  text-align: center;
+  color: var(--gray-600);
+  font-size: 0.95rem;
+}
+
+.form-footer a {
+  color: var(--primary);
+  font-weight: 500;
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.form-footer a:hover {
+  text-decoration: underline;
+}
+
+
+
+@media (max-width: 480px) {
+  .login-form {
+    padding: 1.5rem;
+  }
+
+}
