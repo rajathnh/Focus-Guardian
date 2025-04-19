@@ -1,0 +1,189 @@
+/* sessionhistory.css */
+
+.session-history-page {
+    font-family: 'Inter', sans-serif;
+    background: #F9FBFD;
+    color: #2D4357;
+    min-height: 100vh;
+  }
+  
+  .session-history-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
+  
+  /* Header */
+  .session-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+  }
+  
+  .session-history-header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--clr-dark, #2D4357);
+  }
+  
+  .back-button {
+    background: var(--clr-primary, #5B7DB1);
+    color: white;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: background 0.3s ease;
+  }
+  .back-button:hover {
+    background: #4a6b9b;
+  }
+  
+  /* Section Headings */
+  .section-heading {
+    font-size: 1.5rem;
+    color: var(--clr-primary, #5B7DB1);
+    margin-bottom: 1rem;
+    position: relative;
+    padding-bottom: 0.5rem;
+  }
+  .section-heading::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 50px;
+    height: 3px;
+    background: var(--clr-secondary, #7EC8A5);
+  }
+  
+  /* Common Chart Grid */
+  .chart-grid {
+    display: grid;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+  
+  /* Daily Analysis */
+  .daily-analysis-section .chart-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  .daily-analysis-section .chart-item.full-width {
+    grid-column: span 2;
+  }
+  @media (max-width: 768px) {
+    .daily-analysis-section .chart-item.full-width {
+      grid-column: span 1;
+    }
+  }
+  
+  /* Per‑Session Trends */
+  .session-trends-section .chart-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+  
+  /* Chart Card */
+  .chart-item {
+    background: white;
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    position: relative;
+    overflow: hidden;
+  }
+  .chart-item h3 {
+    margin-top: 0;
+    font-size: 1.2rem;
+    color: var(--clr-dark, #2D4357);
+    margin-bottom: 0.8rem;
+  }
+  
+  /* Loading & Error */
+  .loading-indicator,
+  .loading-error {
+    text-align: center;
+    padding: 2rem;
+    font-size: 1.2rem;
+  }
+  .loading-error {
+    background: #FFD2D2;
+    color: #D8000C;
+    border: 1px solid #D8000C;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+  }
+  
+  /* Detailed Session Log Table */
+  .detailed-log-section .table-container {
+    overflow-x: auto;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    padding: 1rem;
+  }
+  
+  /* Flex‑based “table” */
+  .flex-table {
+    width: 100%;
+  }
+  .flex-header, .flex-row {
+    display: flex;
+    align-items: center;
+  }
+  .flex-header {
+    background: var(--clr-bg, #e9fdee);
+    border-bottom: 2px solid var(--clr-secondary, #7EC8A5);
+  }
+  .flex-header .cell {
+    flex: 1;
+    padding: 0.8rem;
+    font-weight: 600;
+    text-align: left;
+  }
+  .flex-row {
+    border-bottom: 1px solid #eee;
+  }
+  .flex-row:nth-child(even) {
+    background: #fafcfb;
+  }
+  .flex-row .cell {
+    flex: 1;
+    padding: 0.8rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .flex-row .cell.duration {
+    text-align: center;
+  }
+  .flex-row .cell.actions {
+    flex: 0 0 80px;
+    text-align: center;
+  }
+  
+  /* Inline detail expansion */
+  .detail-row {
+    animation: fadeInDetail 0.3s ease-out;
+    background: #f8f8ff;
+  }
+  .detail-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    padding: 1rem;
+  }
+  .detail-heading {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--clr-dark, #2D4357);
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  /* Fade‑in keyframes */
+  @keyframes fadeInDetail {
+    0%   { opacity: 0; max-height: 0; overflow: hidden; }
+    100% { opacity: 1; max-height: 500px; overflow: hidden; }
+  }
+  

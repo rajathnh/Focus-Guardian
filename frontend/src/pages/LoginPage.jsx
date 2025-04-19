@@ -3,10 +3,6 @@ import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import './Login.css';
 import {
-  FaFacebookF,
-  FaTwitter,
-  FaLinkedinIn,
-  FaInstagram,
   FaSpinner
 } from 'react-icons/fa';
 import Navbar from '../components/Navbar';

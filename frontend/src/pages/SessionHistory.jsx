@@ -2,6 +2,10 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
+import Navbar from '../components/Navbar';
+import Footer from '../components/Footer';
+import './sessionhistory.css';
+
 
 
 // --- Import Specific Chart Components ---
@@ -353,136 +357,152 @@ function SessionHistoryPage() {
     const displayError = historyError || dailyError || dailyAppError;
 
     return (
-        <div style={{ padding: '20px', fontFamily: 'sans-serif', maxWidth: '1200px', margin: '0 auto' }}>
-             {/* Add keyframes for animation */}
-             <style>{`@keyframes fadeInDetail { 0% { opacity: 0; max-height: 0; overflow: hidden; } 100% { opacity: 1; max-height: 500px; overflow: hidden; } }`}</style>
+        <div className="session-history-page">
+          <Navbar />
+          <div className="session-history-container">
+    
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h1>Analytics & History</h1>
-                <div><Link to="/dashboard" style={{ textDecoration: 'none', color: '#007bff' }}>← Back to Dashboard</Link></div>
+            <div className="session-history-header">
+              <h1>Analytics & History</h1>
+              <Link to="/dashboard" className="back-button">← Back to Dashboard</Link>
             </div>
-
-            {/* Loading/Error Indicators */}
-            {isLoading && <div style={{ padding: '40px 20px', textAlign: 'center', fontSize: '1.2em' }}>Loading data...</div>}
+    
+            {/* Loading / Error */}
+            {isLoading && <div className="loading-indicator">Loading data...</div>}
             {displayError && !isLoading && (
-                <div style={{ padding: '20px', color: 'red', textAlign: 'center', border: '1px solid red', borderRadius: '5px', margin: '20px 0' }}>
-                    Error loading some data. Charts or logs may be incomplete. Please try refreshing. <Link to="/dashboard">Go Back</Link>.
-                </div>
+              <div className="loading-error">
+                Error loading some data. Charts or logs may be incomplete. Please try refreshing. <Link to="/dashboard">Go Back</Link>.
+              </div>
             )}
-
+    
             {/* Main Content */}
             {!isLoading && (
-                <>
-                    {/* Daily Analysis Section */}
-                    <div style={{ marginBottom: '40px' }}>
-                         <h2 style={{ borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Daily Analysis (Last {daysToShow} Days)</h2>
-                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginTop: '15px' }}>
-                             {dailyError ? <p style={styles.errorText}>Focus Time/Percent Chart Error</p> : <>
-                                 <DailyFocusTimeChart dailyData={dailyData} options={commonBarChartOptions} formatDateShort={formatDateShort} />
-                                 <DailyFocusPercentChart dailyData={dailyData} options={percentChartOptions} formatDateShort={formatDateShort} />
-                             </>}
-                             {dailyAppError ? <p style={styles.errorText}>Daily App Usage Chart Error</p> :
-                                 <DailyAppUsagePieChart dailyAppStats={dailyAppStats} options={pieChartOptions} getRandomColor={getRandomColor} />
-                             }
-                         </div>
-                    </div>
-
-                    {/* Per-Session Trends Section */}
-                    <div style={{ marginBottom: '40px' }}>
-                        <h2 style={{ borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Per-Session Trends</h2>
-                        {historyError ? <p style={styles.errorText}>Trend Chart Error</p> : (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginTop: '15px' }}>
-                                <SessionFocusTrendChart history={history} options={focusPercentLineOptions} />
-                                <SessionDurationChart history={history} options={commonBarChartOptions} />
+              <>
+    
+                {/* Daily Analysis */}
+                <section className="daily-analysis-section">
+                  <h2 className="section-heading">Daily Analysis (Last {daysToShow} Days)</h2>
+                  <div className="chart-grid">
+                    {dailyError
+                      ? <div className="loading-error">Focus Time/Percent Chart Error</div>
+                      : (
+                        <>
+                          <div className="chart-item"><h3>Daily Focus Time</h3><DailyFocusTimeChart dailyData={dailyData} options={commonBarChartOptions} formatDateShort={formatDateShort} /></div>
+                          <div className="chart-item"><h3>Daily Focus Percentage</h3><DailyFocusPercentChart dailyData={dailyData} options={percentChartOptions} formatDateShort={formatDateShort} /></div>
+                        </>
+                      )
+                    }
+                    {dailyAppError
+                      ? <div className="loading-error">Daily App Usage Chart Error</div>
+                      : <div className="chart-item full-width"><h3>Daily App Usage Distribution</h3><DailyAppUsagePieChart dailyAppStats={dailyAppStats} options={pieChartOptions} getRandomColor={getRandomColor} /></div>
+                    }
+                  </div>
+                </section>
+    
+                {/* Per-Session Trends */}
+                <section className="session-trends-section">
+                  <h2 className="section-heading">Per-Session Trends</h2>
+                  {historyError
+                    ? <div className="loading-error">Trend Chart Error</div>
+                    : (
+                      <div className="chart-grid">
+                        <div className="chart-item"><h3>Focus % Per Session</h3><SessionFocusTrendChart history={history} options={focusPercentLineOptions} /></div>
+                        <div className="chart-item"><h3>Session Duration</h3><SessionDurationChart history={history} options={commonBarChartOptions} /></div>
+                      </div>
+                    )
+                  }
+                </section>
+    
+                {/* Detailed Session Log */}
+                <section className="detailed-log-section">
+                  <h2 className="section-heading">Detailed Session Log</h2>
+                  {historyError
+                    ? <p style={styles.errorText}>Could not load the detailed session log.</p>
+                    : history.length === 0
+                      ? <p>No sessions recorded yet.</p>
+                      : (
+                        <div className="table-container">
+                          <div className="flex-table">
+                            {/* Header Row */}
+                            <div className="flex-header">
+                              <div className="cell">Start Time</div>
+                              <div className="cell">Duration</div>
+                              <div className="cell">Focus %</div>
+                              <div className="cell">Focus Time</div>
+                              <div className="cell">Distraction</div>
+                              <div className="cell">Top App</div>
+                              <div className="cell actions">Details</div>
                             </div>
-                        )}
-                    </div>
-
-                    {/* Detailed Session Log Section */}
-                    <div style={{ marginTop: '30px' }}>
-                        <h2 style={{ borderBottom: '1px solid #eee', paddingBottom: '5px' }}>Detailed Session Log</h2>
-                        {historyError ? <p style={{ color: 'orange' }}>Could not load the detailed session log.</p>
-                         : history.length === 0 ? <p>No sessions recorded yet.</p>
-                         : (
-                            <div style={{ overflowX: 'auto' }}>
-                                <div style={{ border: '1px solid #ccc', borderRadius: '5px' }}>
-                                    {/* Header Row */}
-                                    <div style={{ display: 'flex', fontWeight: 'bold', background: '#f2f2f2', borderBottom: '2px solid #ccc' }}>
-                                        <div style={styles.thFlex}>Start Time</div>
-                                        <div style={styles.thFlex}>Duration</div>
-                                        <div style={styles.thFlex}>Focus %</div>
-                                        <div style={styles.thFlex}>Focus Time</div>
-                                        <div style={styles.thFlex}>Distraction</div>
-                                        <div style={styles.thFlex}>Top App</div>
-                                        <div style={{ ...styles.thFlex, flexBasis: '80px', flexGrow: 0, textAlign: 'center', borderRight: 'none' }}>Details</div>
+                            {/* Data Rows */}
+                            {history.map(session => {
+                              const isExpanded = expandedSessionId === session._id;
+                              const topAppEntry = Object.entries(session.appUsage || {}).sort(([, a], [, b]) => b - a)[0];
+                              const topAppName = topAppEntry ? topAppEntry[0].replace(/_/g, '.') : 'N/A';
+                              const topAppTime = topAppEntry ? topAppEntry[1] : 0;
+    
+                              return (
+                                <React.Fragment key={session._id}>
+                                  <div className={`flex-row${isExpanded ? ' expanded' : ''}`}>
+                                    <div className="cell">{new Date(session.startTime).toLocaleString()}</div>
+                                    <div className="cell duration">{formatDuration(session.startTime, session.endTime)}</div>
+                                    <div className="cell">{formatFocusPercent(session.focusTime, session.distractionTime)}</div>
+                                    <div className="cell">{formatTimeDetailed(session.focusTime)}</div>
+                                    <div className="cell">{formatTimeDetailed(session.distractionTime)}</div>
+                                    <div className="cell">{topAppName !== 'N/A' ? `${topAppName} (${formatMinutesOnly(topAppTime)})` : 'N/A'}</div>
+                                    <div className="cell actions">
+                                      <button
+                                        onClick={() => fetchExpandedSessionDetails(session._id)}
+                                        disabled={expandedDetailLoading && expandedSessionId === session._id}
+                                        style={styles.detailButton}
+                                        title={isExpanded ? "Hide Details" : "Show Details"}
+                                      >
+                                        {expandedDetailLoading && expandedSessionId === session._id ? '…' : (isExpanded ? '▼' : '▶')}
+                                      </button>
                                     </div>
-                                    {/* Data Rows */}
-                                    {history.map((session) => {
-                                        const isExpanded = expandedSessionId === session._id;
-                                        const topAppEntry = Object.entries(session.appUsage || {}).sort(([, a], [, b]) => b - a)[0];
-                                        const topAppName = topAppEntry ? topAppEntry[0].replace(/_/g, '.') : 'N/A';
-                                        const topAppTime = topAppEntry ? topAppEntry[1] : 0;
-
-                                        return (
-                                            <React.Fragment key={session._id}>
-                                                {/* Main Row */}
-                                                <div style={isExpanded ? styles.trFlexExpanded : styles.trFlex}>
-                                                    <div style={styles.tdFlex}>{new Date(session.startTime).toLocaleString()}</div>
-                                                    <div style={styles.tdFlex}>{formatDuration(session.startTime, session.endTime)}</div>
-                                                    <div style={styles.tdFlexBold}>{formatFocusPercent(session.focusTime, session.distractionTime)}</div>
-                                                    <div style={styles.tdFlexGreen}>{formatTimeDetailed(session.focusTime)}</div>
-                                                    <div style={styles.tdFlexRed}>{formatTimeDetailed(session.distractionTime)}</div>
-                                                    <div style={styles.tdFlex}>{topAppName !== 'N/A' ? `${topAppName} (${formatMinutesOnly(topAppTime)})` : 'N/A'}</div>
-                                                    <div style={styles.detailButtonCell}> {/* Use specific style */}
-                                                        <button
-                                                            onClick={() => fetchExpandedSessionDetails(session._id)}
-                                                            disabled={expandedDetailLoading && expandedSessionId === session._id}
-                                                            style={styles.detailButton}
-                                                            title={isExpanded ? "Hide Details" : "Show Details"}
-                                                        >
-                                                            {expandedDetailLoading && expandedSessionId === session._id ? '…' : (isExpanded ? '▼' : '▶')}
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                {/* Detail Row (Conditional) */}
-                                                {isExpanded && (
-                                                    <div style={styles.trDetailDiv}>
-                                                        {expandedDetailLoading && <p style={{ padding: '15px', textAlign: 'center' }}>Loading details...</p>}
-                                                        {expandedDetailError && <p style={{ color: 'red', padding: '15px', textAlign: 'center' }}>Error: {expandedDetailError}</p>}
-                                                        {expandedSessionData && !expandedDetailLoading && !expandedDetailError && (
-                                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', padding: '15px' }}>
-                                                                <div> {/* Summary */}
-                                                                    <h4 style={styles.detailHeading}>Summary</h4>
-                                                                    <p><strong>Started:</strong> {new Date(expandedSessionData.startTime).toLocaleString()}</p>
-                                                                    <p><strong>Ended:</strong> {expandedSessionData.endTime ? new Date(expandedSessionData.endTime).toLocaleString() : 'In Progress'}</p>
-                                                                    <p><strong>Duration:</strong> {formatDuration(expandedSessionData.startTime, expandedSessionData.endTime)}</p>
-                                                                    <p><strong>Focus %:</strong> <span style={{ fontWeight: 'bold' }}>{formatFocusPercent(expandedSessionData.focusTime, expandedSessionData.distractionTime)}</span></p>
-                                                                    <p><strong>Focus Time:</strong> <span style={{ color: 'green' }}>{formatTimeDetailed(expandedSessionData.focusTime)}</span></p>
-                                                                    <p><strong>Distraction Time:</strong> <span style={{ color: 'red' }}>{formatTimeDetailed(expandedSessionData.distractionTime)}</span></p>
-                                                                </div>
-                                                                <div> {/* App Usage Pie */}
-                                                                    <h4 style={styles.detailHeading}>Application Usage (This Session)</h4>
-                                                                    <AppUsagePieChart
-                                                                        sessionData={expandedSessionData}
-                                                                        options={pieChartOptions}
-                                                                        getRandomColor={getRandomColor}
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </React.Fragment>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </>
+                                  </div>
+                                  {isExpanded && (
+                                    <div className="detail-row">
+                                      {expandedDetailLoading && <p style={{ padding: '15px', textAlign: 'center' }}>Loading details...</p>}
+                                      {expandedDetailError && <p style={{ color: 'red', padding: '15px', textAlign: 'center' }}>Error: {expandedDetailError}</p>}
+                                      {expandedSessionData && !expandedDetailLoading && !expandedDetailError && (
+                                        <div className="detail-content">
+                                          <div>
+                                            <h4 style={styles.detailHeading}>Summary</h4>
+                                            <p><strong>Started:</strong> {new Date(expandedSessionData.startTime).toLocaleString()}</p>
+                                            <p><strong>Ended:</strong> {expandedSessionData.endTime ? new Date(expandedSessionData.endTime).toLocaleString() : 'In Progress'}</p>
+                                            <p><strong>Duration:</strong> {formatDuration(expandedSessionData.startTime, expandedSessionData.endTime)}</p>
+                                            <p><strong>Focus %:</strong> <span style={{ fontWeight: 'bold' }}>{formatFocusPercent(expandedSessionData.focusTime, expandedSessionData.distractionTime)}</span></p>
+                                            <p><strong>Focus Time:</strong> <span style={{ color: 'green' }}>{formatTimeDetailed(expandedSessionData.focusTime)}</span></p>
+                                            <p><strong>Distraction Time:</strong> <span style={{ color: 'red' }}>{formatTimeDetailed(expandedSessionData.distractionTime)}</span></p>
+                                          </div>
+                                          <div>
+                                            <h4 style={styles.detailHeading}>Application Usage (This Session)</h4>
+                                            <AppUsagePieChart
+                                              sessionData={expandedSessionData}
+                                              options={pieChartOptions}
+                                              getRandomColor={getRandomColor}
+                                            />
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )
+                  }
+                </section>
+    
+              </>
             )}
+    
+          </div>
+          <Footer />
         </div>
-    );
-}
+      );
+    }
 
 export default SessionHistoryPage;
