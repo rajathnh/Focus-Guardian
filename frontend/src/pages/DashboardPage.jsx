@@ -156,15 +156,31 @@ export default function DashboardPage() {
     setStreamsActive(false);
 
     try {
+      // First, ensure we have valid references to the video elements
+      if (!webcamVideoRef.current || !screenVideoRef.current || !canvasRef.current) {
+        throw new Error("Required video or canvas elements not found in the DOM");
+      }
+
       const wStream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
       const sStream = await navigator.mediaDevices.getDisplayMedia({ video: { width: 1920, height: 1080 }, audio: false });
 
       webcamStreamRef.current = wStream;
       screenStreamRef.current = sStream;
 
+      // Safely set srcObject only if refs exist
       webcamVideoRef.current.srcObject = wStream;
       screenVideoRef.current.srcObject = sStream;
-      await Promise.allSettled([webcamVideoRef.current.play(), screenVideoRef.current.play()]);
+      
+      try {
+        // Try to play both videos
+        await Promise.allSettled([
+          webcamVideoRef.current.play().catch(e => console.error("Webcam play error:", e)),
+          screenVideoRef.current.play().catch(e => console.error("Screen play error:", e))
+        ]);
+      } catch (playError) {
+        console.error("Media play error:", playError);
+        // Continue even if play fails as the srcObject assignment is more important
+      }
 
       const res = await authAxios.post(`${API_URL}/api/sessions/start`);
       if (!res.data.sessionId) throw new Error("No session ID returned");
@@ -180,7 +196,7 @@ export default function DashboardPage() {
     } finally {
       setLoadingAction(false);
     }
-  }, [activeSession, handleLogout]);
+  }, [activeSession]);
 
   // Initial load
   useEffect(() => {
@@ -387,6 +403,14 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Add hidden video and canvas elements for capturing media */}
+      <div style={{ display: 'none' }}>
+        <video ref={webcamVideoRef} autoPlay playsInline muted />
+        <video ref={screenVideoRef} autoPlay playsInline muted />
+        <canvas ref={canvasRef} width="3200" height="1280" />
+      </div>
+
       <Footer />
     </div>
   );
