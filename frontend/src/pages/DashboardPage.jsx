@@ -21,7 +21,7 @@ const createAuthAxiosInstance = () => {
 };
 const authAxios = createAuthAxiosInstance();
 
-const ANALYSIS_INTERVAL_MS = 120 * 1000;
+const ANALYSIS_INTERVAL_MS = 5 * 1000;
 
 const stopMediaStreamsGlobal = (webcamStreamRef, screenStreamRef) => {
   let stopped = false;
