@@ -362,6 +362,132 @@ async function handleAudioMessage(req, res) {
 }
 
 
+function formatStatsContext(stats) {
+    let context = "[START CONTEXT FOR AI - PRODUCTIVITY UPDATE]\n";
+    // ... (paste your existing stats formatting logic here) ...
+    context += "[END CONTEXT FOR AI]";
+    return context;
+}
+
+// *** NEW: Core LLM Interaction Function for STREAMING ***
+async function streamChatbotResponse(userId, userMessageContent, res) {
+    console.log(`[Stream Process] Start streamChatbotResponse for user ${userId}, message: "${userMessageContent.substring(0,50)}..."`);
+    // Note: SSE Headers (like Content-Type) should already be set by the caller route handler before calling this function.
+
+    let chatHistoryDoc;
+    let fullBotResponse = ""; // To store the complete reply for saving later
+    let streamErrored = false;
+
+    try {
+        // --- 1. Load/Prepare Chat History (like non-streaming version) ---
+        chatHistoryDoc = await ChatHistory.findOne({ userId });
+        if (!chatHistoryDoc) {
+            chatHistoryDoc = new ChatHistory({ userId, systemMessage: { content: systemMessage, timestamp: new Date() }, messages: [] });
+        }
+        // Ensure system message is present
+        if (!chatHistoryDoc.systemMessage || !chatHistoryDoc.systemMessage.content) {
+            chatHistoryDoc.systemMessage = { content: systemMessage, timestamp: new Date() };
+        }
+
+        // --- 2. Append User Message and Save Immediately ---
+        // (Important to save user message even if LLM call fails later)
+        const userMessageForDb = { role: "user", content: userMessageContent, timestamp: new Date() };
+        chatHistoryDoc.messages.push(userMessageForDb);
+        await chatHistoryDoc.save();
+        console.log(`[Stream Process] Saved user message for ${userId}.`);
+
+        // --- 3. Fetch Comprehensive Stats ---
+        console.log(`[Stream Process] Fetching comprehensive stats for context...`);
+        const comprehensiveStats = await getComprehensiveStats(userId);
+        const statsContextString = formatStatsContext(comprehensiveStats); // Use the helper
+        console.log("[Stream Process] Generated statsContextString for injection.");
+
+        // --- 4. Prepare LLM Payload (History + Stats + New Message) ---
+        const conversationForLLM = [];
+        conversationForLLM.push({ role: "system", content: chatHistoryDoc.systemMessage.content });
+        conversationForLLM.push({ role: "system", content: statsContextString }); // Inject stats
+
+        const messagesFromDb = chatHistoryDoc.messages; // Use the updated doc
+        const historyStartIndex = Math.max(0, messagesFromDb.length - 1 - MAX_HISTORY_MESSAGES * 2);
+        const recentDbMessages = messagesFromDb.slice(historyStartIndex, -1); // Exclude the very last user msg we just added
+        recentDbMessages.forEach(msg => {
+            if (msg && msg.role && msg.content) {
+                conversationForLLM.push({ role: msg.role, content: msg.content });
+            }
+        });
+        // Add the LATEST user message (the one triggering this call)
+        conversationForLLM.push({ role: "user", content: userMessageContent });
+
+        console.log(`[Stream Call] Preparing ${conversationForLLM.length} messages for Groq LLM (${LLM_MODEL}) streaming.`);
+
+        // --- 5. Call Groq LLM API with stream: true ---
+        const stream = await groq.chat.completions.create({
+            messages: conversationForLLM,
+            model: LLM_MODEL,
+            temperature: 0.7,
+            top_p: 1,
+            stream: true, // **** Key change: Enable streaming ****
+        });
+
+        // --- 6. Process the Stream Chunks ---
+        console.log("[Stream Call] Receiving stream from Groq...");
+        for await (const chunk of stream) {
+            // Extract the text content from the chunk
+            const contentChunk = chunk.choices[0]?.delta?.content;
+
+            if (contentChunk) {
+                fullBotResponse += contentChunk; // Append to the full response string
+                // **** Send chunk to frontend formatted as SSE 'data' event ****
+                // We JSON.stringify an object containing the chunk for easier parsing on the frontend
+                res.write(`data: ${JSON.stringify({ chunk: contentChunk })}\n\n`);
+            }
+
+            // Optional: Check for finish reason if Groq provides it this way
+            if (chunk.choices[0]?.finish_reason) {
+                 console.log(`[Stream Call] Stream finished by LLM. Reason: ${chunk.choices[0].finish_reason}`);
+                 break; // Exit the loop
+            }
+        }
+        console.log(`[Stream Call] Groq stream processing complete. Full response length: ${fullBotResponse.length}`);
+
+    } catch (error) {
+        streamErrored = true;
+        console.error("[Stream Call] Error during Groq LLM stream:", error.response ? JSON.stringify(error.response.data, null, 2) : error.message);
+        // Send an error event to the frontend
+        res.write(`event: error\ndata: ${JSON.stringify({ message: "Assistant failed to generate response." })}\n\n`);
+    } finally {
+        // --- 7. Signal End of Stream to Frontend ---
+        // This tells the frontend that no more 'data' events are coming.
+        res.write(`event: end\ndata: ${JSON.stringify({ done: true })}\n\n`);
+        res.end(); // **** Close the connection ****
+        console.log("[Stream Process] SSE stream ended.");
+
+        // --- 8. Save Full Bot Response to DB (AFTER stream ends) ---
+        if (!streamErrored && fullBotResponse.trim()) {
+            try {
+                // Find the history doc again to add the assistant's full reply
+                // Note: We saved the user message earlier. Now add the bot reply.
+                // Re-fetch or update the existing chatHistoryDoc variable
+                 let finalHistoryDoc = await ChatHistory.findOne({ userId }); // Safer to re-fetch
+                 if (finalHistoryDoc) {
+                    finalHistoryDoc.messages.push({ role: "assistant", content: fullBotResponse, timestamp: new Date() });
+                    await finalHistoryDoc.save();
+                    console.log(`[Stream Process] Saved accumulated assistant response for user ${userId}.`);
+                 } else {
+                     console.error(`[Stream Process] Could not find history doc to save final bot response for ${userId}.`);
+                 }
+            } catch (dbError) {
+                console.error(`[Stream Process] DB Error saving final assistant response for user ${userId}:`, dbError);
+            }
+        } else if (streamErrored) {
+            console.warn(`[Stream Process] Assistant response not saved for user ${userId} due to stream error.`);
+        } else {
+            console.warn(`[Stream Process] Assistant response not saved for user ${userId} because it was empty.`);
+        }
+    }
+}
+
+
 // --- Set up Express Router ---
 const router = express.Router();
 
@@ -380,7 +506,33 @@ router.post('/converse', asyncHandler(async (req, res) => { /* ... Text Handler 
     const botResponse = await getChatbotResponse(userId, message.trim());
     res.status(200).json({ reply: botResponse });
 }));
-// Within the same file, after defining the function and router/upload:
+
+router.post('/converse/stream', asyncHandler(async (req, res) => {
+    // 1. Authentication Check (Essential!)
+    if (!req.user || !req.user.id) {
+        return res.status(401).json({ error: 'User authentication required.' });
+    }
+    const userId = req.user.id;
+    const { message } = req.body;
+
+    // 2. Input Validation
+    if (!message || typeof message !== 'string' || message.trim() === '') {
+        return res.status(400).json({ error: 'Message content is required.' });
+    }
+    const userMessageContent = message.trim();
+    console.log(`[Request] POST /converse/stream - User: ${userId}, Message: "${userMessageContent.substring(0, 50)}..."`);
+
+    // 3. SSE Headers (Tell the browser this is a stream)
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders(); // Send headers immediately
+
+    // 4. Placeholder for the actual streaming logic 
+    await streamChatbotResponse(userId, userMessageContent, res);
+}));
+
+
 router.post('/converse/audio', upload.single('audio'), asyncHandler(handleAudioMessage));
 router.get('/history', asyncHandler(async (req, res) => { /* ... History Handler ... */
     if (!req.user || !req.user.id) return res.status(401).json({ error: 'User authentication required.' });

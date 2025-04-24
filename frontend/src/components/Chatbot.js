@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+// import { createParser } from 'eventsource-parser';
 const API_URL = process.env.REACT_APP_API_BASE_URL;
 
 // Basic styling (consider moving to a CSS file or styled-components)
@@ -112,7 +113,9 @@ function Chatbot() {
   const mediaRecorderRef = useRef(null); // Holds the MediaRecorder instance
   const audioChunksRef = useRef([]); // Stores audio data chunks during recording
   const messagesContainerRef = useRef(null); // Ref for the scrollable messages area
+  const streamAbortControllerRef = useRef(null); // Ref for the AbortController
 
+  
   // Helper function to get the auth token from local storage
   const getToken = useCallback(() => {
     try {
@@ -186,48 +189,188 @@ function Chatbot() {
     }
   }, [messages]); // Dependency: run this effect whenever the 'messages' array changes
 
-  // Callback function to handle sending a text message
-  const handleSendMessage = useCallback(async () => {
-    const text = inputText.trim();
-    // Prevent sending empty messages or sending while loading/recording
-    if (!text || isLoading || isRecording) return;
-
-    setError(null); // Clear previous errors
-    const token = getToken();
-    if (!token) return; // Stop if no token
-
-    // Optimistically add the user's message to the state
-    setMessages(prev => [...prev, { role: 'user', content: text }]);
-    setInputText(''); // Clear the input field
-    setIsLoading(true); // Set loading state while waiting for the bot's response
-
-    try {
-      const res = await axios.post(
-        `${API_URL}/api/chat/converse`,
-        { message: text }, // Send message text in the request body
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-      // Add the bot's reply to the messages state if it exists
-      if (res.data.reply) {
-        setMessages(prev => [...prev, { role: 'assistant', content: res.data.reply }]);
-      } else {
-        // Handle cases where the response structure is unexpected
-        throw new Error("Invalid response structure from server.");
+   // Effect to abort stream on component unmount
+   useEffect(() => {
+    // This function runs when the component is about to unmount
+    return () => {
+      if (streamAbortControllerRef.current) {
+        console.log("Chatbot unmounting, aborting any active stream.");
+        // If there's an active AbortController (meaning a stream might be running), call its abort() method.
+        streamAbortControllerRef.current.abort();
       }
-    } catch (err) {
-      console.error("Failed to send message:", err);
-      setError(err.response?.data?.error || err.message || "Failed to send message.");
-      // Optionally: remove the optimistically added user message on failure
-      // setMessages(prev => prev.slice(0, -1));
-    } finally {
-      setIsLoading(false); // Clear loading state
-    }
-  }, [inputText, isLoading, isRecording, getToken]); // Dependencies for the callback
+    };
+  }, []); 
+
+// Callback function to handle sending a text message (Streaming Version - MANUAL PARSING)
+const handleSendMessage = useCallback(async () => {
+  const text = inputText.trim();
+  if (!text || isLoading || isRecording) return;
+
+  setError(null);
+  const token = getToken();
+  if (!token) return;
+
+  // --- Stream Handling Setup ---
+  if (streamAbortControllerRef.current) {
+      streamAbortControllerRef.current.abort();
+      console.log("New message sent, aborting previous stream.");
+  }
+  const abortController = new AbortController();
+  streamAbortControllerRef.current = abortController;
+
+  // --- Optimistic UI Updates ---
+  const userMessage = { role: 'user', content: text };
+  const botMessagePlaceholder = {
+      role: 'assistant',
+      content: '',
+      id: `bot-${Date.now()}`
+  };
+  setMessages(prev => [...prev, userMessage, botMessagePlaceholder]);
+  setInputText('');
+  setIsLoading(true);
+
+  // --- Fetch and Process Stream ---
+  try {
+      const response = await fetch(`${API_URL}/api/chat/converse/stream`, {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+              'Accept': 'text/event-stream',
+          },
+          body: JSON.stringify({ message: text }),
+          signal: abortController.signal,
+      });
+
+      if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+      }
+      if (!response.body) {
+          throw new Error("Streaming response body is missing.");
+      }
+
+      // --- MANUAL SSE PARSING ---
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = ''; // Accumulate decoded chunks
+      let accumulatedResponse = ''; // Accumulate just the bot's text content
+
+      console.log("Starting stream reader loop (Manual Parsing)...");
+      while (true) {
+          const { value, done } = await reader.read();
+          if (done) {
+              console.log("Stream reader finished (done is true).");
+              // Process any remaining buffer content if needed (usually not necessary for final 'end' event)
+              break;
+          }
+
+          const decodedChunk = decoder.decode(value, { stream: true });
+          buffer += decodedChunk; // Add chunk to buffer
+          console.log(`ManualParse: Buffer length: ${buffer.length}, Received chunk: ${JSON.stringify(decodedChunk)}`);
+
+          // Process complete messages in the buffer (split by \n\n)
+          let boundaryIndex;
+          while ((boundaryIndex = buffer.indexOf('\n\n')) >= 0) {
+              const message = buffer.substring(0, boundaryIndex).trim(); // Get message part
+              buffer = buffer.substring(boundaryIndex + 2); // Remove message and \n\n from buffer
+
+              if (message.startsWith('event: end')) {
+                  console.log("ManualParse: Detected 'event: end'. Stopping.");
+                  // No need to return here, let the outer loop finish naturally
+                  // Set loading false directly
+                  setIsLoading(false);
+                  if (streamAbortControllerRef.current && !streamAbortControllerRef.current.signal.aborted) {
+                     streamAbortControllerRef.current = null;
+                  }
+                  // Ensure final state update if needed (though chunk updates should cover it)
+                  setMessages(prev => prev.map(msg =>
+                    msg.id === botMessagePlaceholder.id ? { ...msg, content: accumulatedResponse } : msg
+                  ));
+                  // No need to continue processing messages after 'end'
+                   continue; // Skip to next iteration of outer while loop (effectively waits for 'done')
+              }
+
+               if (message.startsWith('event: error')) {
+                  console.error("ManualParse: Detected 'event: error'.");
+                  const dataLine = message.split('\n').find(line => line.startsWith('data:'));
+                  let errorMsg = "Error during stream";
+                  if (dataLine) {
+                      try {
+                          const errorJson = JSON.parse(dataLine.substring(5).trim());
+                          errorMsg = errorJson.message || errorMsg;
+                      } catch (e) { console.error("Could not parse error event data", e); }
+                  }
+                  setError(errorMsg);
+                  setIsLoading(false);
+                   if (streamAbortControllerRef.current && !streamAbortControllerRef.current.signal.aborted) {
+                     streamAbortControllerRef.current = null;
+                   }
+                  setMessages(prev => prev.map(msg =>
+                      msg.id === botMessagePlaceholder.id ? { ...msg, content: `[Error: ${errorMsg}]` } : msg
+                   ));
+                  continue; // Skip processing further after error
+               }
+
+              if (message.startsWith('data:')) {
+                  const dataContent = message.substring(5).trim(); // Get content after "data:"
+                  console.log("ManualParse: Processing data message:", dataContent);
+                  try {
+                      const json = JSON.parse(dataContent);
+                      if (json.chunk) {
+                          const textChunk = json.chunk;
+                          accumulatedResponse += textChunk;
+                          console.log("ManualParse: Appending chunk:", textChunk);
+                          // Update state incrementally
+                          setMessages(prev => prev.map(msg =>
+                              msg.id === botMessagePlaceholder.id
+                                  ? { ...msg, content: msg.content + textChunk }
+                                  : msg
+                          ));
+                      } else {
+                          console.warn("ManualParse: Received data message without 'chunk' property:", json);
+                      }
+                  } catch (e) {
+                      console.error("ManualParse: Error parsing data JSON:", e, "Raw Data:", dataContent);
+                  }
+              } else if (message) { // Log other non-empty lines if any
+                  console.log("ManualParse: Received non-data/non-event line:", message);
+              }
+          } // End while loop for processing buffer
+      } // End while loop for reader.read()
+      console.log("Exited stream reader loop (Manual Parsing).");
+
+
+      // Fallback cleanup (if stream ends weirdly)
+       if (isLoading) { // Check if loading wasn't stopped by 'end' event
+          console.warn("ManualParse: Stream loop finished, but isLoading is still true. Forcing loading stop.");
+          setIsLoading(false);
+           if (streamAbortControllerRef.current && !streamAbortControllerRef.current.signal.aborted) {
+               streamAbortControllerRef.current = null;
+           }
+           // Final state update for safety
+           setMessages(prev => prev.map(msg => msg.id === botMessagePlaceholder.id ? { ...msg, content: accumulatedResponse } : msg));
+      }
+
+  } catch (err) {
+      // Error Handling (keep existing catch block)
+      if (err.name === 'AbortError') {
+          console.log("Fetch request was aborted by AbortController.");
+          setMessages(prev => prev.filter(msg => msg.id !== botMessagePlaceholder.id));
+      } else {
+          console.error("Failed to send message or process stream:", err);
+          setError(err.message || "Failed to get response from assistant.");
+          setMessages(prev => prev.map(msg =>
+             msg.id === botMessagePlaceholder.id ? { ...msg, content: `[Error: ${err.message}]` } : msg
+          ));
+      }
+      setIsLoading(false);
+       if (streamAbortControllerRef.current && !streamAbortControllerRef.current.signal.aborted) {
+          streamAbortControllerRef.current = null;
+       }
+  }
+
+}, [inputText, isLoading, isRecording, getToken]); // Keep dependencies
 
   // Callback function to start audio recording
   const handleStartRecording = useCallback(async () => {
