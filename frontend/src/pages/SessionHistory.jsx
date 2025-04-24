@@ -32,27 +32,46 @@ const createAuthAxiosInstance = () => {
 const authAxios = createAuthAxiosInstance();
 
 // --- Formatting Helpers (Implementations Included) ---
-const formatDuration = (start, end, units = 'min') => {
-    if (!start || !end) return "N/A";
-    try {
-        const startDate = new Date(start);
-        const endDate = new Date(end);
-        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return "Invalid Date";
+const formatDuration = (start, end) => { // Removed the 'units' parameter
+  if (!start || !end) return "N/A";
+  try {
+      const startDate = new Date(start);
+      const endDate = new Date(end);
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return "Invalid Date";
 
-        const durationMs = endDate.getTime() - startDate.getTime();
-        if (isNaN(durationMs) || durationMs < 0) return "N/A";
+      const durationMs = endDate.getTime() - startDate.getTime();
+      if (isNaN(durationMs) || durationMs < 0) return "N/A";
 
-        if (units === 'min') {
-            const minutes = Math.round(durationMs / 60000);
-            return `${minutes} min`;
-        } else {
-            const seconds = Math.round(durationMs / 1000);
-            return `${seconds} sec`;
-        }
-    } catch(e) {
-        console.error("Error formatting duration:", start, end, e);
-        return "Error";
-    }
+      const totalSeconds = Math.round(durationMs / 1000);
+
+      if (totalSeconds === 0) return "0s"; // Show 0s explicitly
+
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const remainingSeconds = totalSeconds % 60;
+
+      let result = "";
+      if (hours > 0) {
+          result += `${hours}h `;
+      }
+      if (minutes > 0) {
+          result += `${minutes}m `;
+      }
+      if (remainingSeconds > 0 || result === "") {
+          if (minutes > 0 || hours > 0) {
+               result += `${remainingSeconds}s`;
+          } else {
+               result = `${remainingSeconds}s`;
+          }
+      }
+       // Append " duration" or similar if desired for clarity, or leave as is for table brevity
+      // Example: return result.trim() + " duration";
+      return result.trim();
+
+  } catch(e) {
+      console.error("Error formatting duration:", start, end, e);
+      return "Error";
+  }
 };
 
 const getRandomColor = () => {
@@ -74,17 +93,35 @@ const formatFocusPercent = (focusTime = 0, distractionTime = 0) => {
 };
 
 const formatTimeDetailed = (seconds = 0) => {
-    const validSeconds = Number(seconds) || 0;
-    if (isNaN(validSeconds) || validSeconds < 0) return "0m";
-    const totalMinutes = Math.round(validSeconds / 60);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    let result = "";
-    if (hours > 0) {
-        result += `${hours}h `;
-    }
-    result += `${minutes}m`;
-    return result;
+  const validSeconds = Number(seconds) || 0;
+  if (isNaN(validSeconds) || validSeconds < 0) return "0s"; // Default to seconds
+
+  const totalSecondsRounded = Math.round(validSeconds); // Round the input seconds if they have decimals
+
+  if (totalSecondsRounded === 0) return "0s"; // Explicitly show 0s
+
+  const hours = Math.floor(totalSecondsRounded / 3600);
+  const minutes = Math.floor((totalSecondsRounded % 3600) / 60);
+  const remainingSeconds = totalSecondsRounded % 60;
+
+  let result = "";
+  if (hours > 0) {
+      result += `${hours}h `;
+  }
+  if (minutes > 0) {
+      result += `${minutes}m `;
+  }
+  // Only show seconds if there are no hours/minutes shown OR if there are remaining seconds
+  if (remainingSeconds > 0 || result === "") {
+       // Remove trailing space if minutes were added
+      if (minutes > 0 || hours > 0) {
+          result += `${remainingSeconds}s`;
+      } else {
+          result = `${remainingSeconds}s`; // Only show seconds if total < 1m
+      }
+  }
+
+  return result.trim(); // Trim any potential trailing space if seconds end up being 0
 };
 
 const formatMinutesOnly = (seconds = 0) => {
@@ -448,7 +485,7 @@ function SessionHistoryPage() {
                                     <div className="cell">{formatFocusPercent(session.focusTime, session.distractionTime)}</div>
                                     <div className="cell">{formatTimeDetailed(session.focusTime)}</div>
                                     <div className="cell">{formatTimeDetailed(session.distractionTime)}</div>
-                                    <div className="cell">{topAppName !== 'N/A' ? `${topAppName} (${formatMinutesOnly(topAppTime)})` : 'N/A'}</div>
+                                    <div className="cell">{topAppName !== 'N/A' ? `${topAppName} (${formatTimeDetailed(topAppTime)})` : 'N/A'}</div>
                                     <div className="cell actions">
                                       <button
                                         onClick={() => fetchExpandedSessionDetails(session._id)}
