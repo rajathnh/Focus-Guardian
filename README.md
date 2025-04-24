@@ -2,27 +2,25 @@
 
 # 🚀 Focus Guardian
 
-> An AI-powered application to track digital focus, analyze productivity patterns, and provide insights through an interactive chat assistant.
+> Unlock Peak Productivity with AI-Driven Focus Insights.
 
 ---
 
 ## 📌 Problem Statement
 
-[User Input Required: Select the problem statement number and title from the official list given in Participant Manual.]
-
-**Example:**
-**Problem Statement 7 – Transform the Future of Rural Commerce**
+**Problem Statement 1 – Weave AI Magic with Groq**
 
 ---
 
 ## 🎯 Objective
 
-Focus Guardian aims to solve the challenge of maintaining focus and understanding productivity habits in digital work environments. It serves students, professionals, remote workers, or anyone looking to minimize distractions and enhance their concentration.
+Focus Guardian tackles the challenge of maintaining focus and understanding productivity habits in today's distraction-filled digital work environments. It serves students, professionals, remote workers, or anyone seeking to minimize digital distractions and enhance their concentration during work sessions.
 
-The application provides value by:
-1.  **Objectively Tracking Focus:** Using AI analysis of webcam and screen activity to determine if the user is engaged in work-related tasks.
+Leveraging the **exceptional low latency of Groq's AI inference**, Focus Guardian provides **real-time analysis** of user focus, something impractical with slower APIs. This allows for immediate feedback and accurate tracking, offering significant value by:
+
+1.  **Objectively Tracking Focus in Real-Time:** Using Groq's fast vision analysis of webcam and screen activity to instantly determine if the user is engaged in work-related tasks.
 2.  **Providing Actionable Insights:** Aggregating data on focus time, distraction time, and application usage, presented through historical logs and visual charts.
-3.  **Facilitating Reflection:** Offering an AI chat assistant that leverages the user's productivity data to provide contextual feedback, encouragement, and answers to queries about their performance patterns.
+3.  **Facilitating Reflection:** Offering an AI chat assistant (powered by Groq LLM and STT) that uses the user's productivity data to provide contextual feedback, encouragement, and answers to queries about their performance patterns.
 
 ---
 
@@ -32,15 +30,24 @@ The application provides value by:
 `Legion Hackers`
 
 ### Team Members:
-- `[User Input Required: Name 1 (GitHub / LinkedIn / Role)]`
-- `[User Input Required: Name 2 (GitHub / LinkedIn / Role)]`
-- `[User Input Required: Name 3 (GitHub / LinkedIn / Role)]`
-*(Add links if you want)*
+- Rajath N H
+- Prajnan Vaidya
+- Preeti Bhat
+- Yashaswini D B
+*(Feel free to add GitHub/LinkedIn links or Roles next to names)*
 
 ### Your Approach:
-- `[User Input Required: Why you chose this problem]`
-- `[User Input Required: Key challenges you addressed (e.g., real-time analysis, AI prompting, data aggregation, frontend state management)]`
-- `[User Input Required: Any pivots, brainstorms, or breakthroughs during hacking (e.g., switching AI models, changing data capture frequency, refining chatbot persona)]`
+We chose Problem Statement 1 to specifically showcase the practical application of Groq's high-speed AI inference. We recognized that building a truly *real-time* productivity tracker, capable of analyzing visual data frequently without significant lag, was only feasible with technology like Groq's LPU. Standard APIs would introduce too much latency, making the feedback loop ineffective.
+
+**Key Challenges Addressed:**
+-   **Prompt Engineering:** Designing effective prompts for the Groq vision model (Llama 4 Scout) to accurately interpret combined webcam/screen data and reliably output structured JSON, considering gaze direction and screen content simultaneously.
+-   **Real-time Data Handling:** Managing the capture (webcam/screen), processing (canvas drawing, Data URI generation), and transmission of image data from the frontend at regular intervals without overwhelming the browser or backend.
+-   **State Synchronization:** Keeping the frontend UI (timers, status indicators, analysis results) accurately synchronized with the backend state and the asynchronous nature of AI analysis and potential rate limits.
+-   **Multimodal Chat Context:** Integrating user-specific, time-sensitive productivity data (Yesterday, Today, Last Session, Current Status) effectively into the Groq LLM (Llama 3) context for relevant and personalized chat responses, including handling audio input via Groq STT (Whisper).
+
+**Breakthroughs:**
+-   Achieving a functional real-time analysis loop where the latency between capture, AI analysis via Groq, and feedback display was minimal enough to feel responsive.
+-   Refining the AI Chat Assistant's persona and data injection logic to provide genuinely helpful and data-aware insights, rather than generic responses.
 
 ---
 
@@ -51,14 +58,18 @@ The application provides value by:
 - **Backend:** Node.js, Express.js
 - **Database:** MongoDB (with Mongoose ODM)
 - **APIs:** Groq API
-- **Hosting:** `[User Input Required: e.g., Vercel, Netlify, Heroku, AWS, Localhost]`
+- **Hosting:** Vercel (`https://focus-guardian-five.vercel.app/`)
 
 ### Sponsor Technologies Used (if any):
 - [✅] **Groq:** Used extensively for:
-    - **Vision Analysis:** Analyzing combined webcam/screen images via Llama 4 Scout model to determine user focus, application, and activity.
-    *   **LLM Chat:** Powering the AI Chat Assistant using Llama 3 model for contextual conversation based on user data.
-    *   **Speech-to-Text:** Transcribing user audio messages via Whisper model for voice interaction with the chatbot.
-
+    - **Vision Analysis:** Analyzing combined webcam/screen images via Llama 4 Scout model at low latency to determine user focus, application, and activity in near real-time.
+    *   **LLM Chat:** Powering the AI Chat Assistant using Llama 3 model for fast, contextual conversation based on injected user data.
+    *   **Speech-to-Text:** Transcribing user audio messages rapidly via Whisper model for seamless voice interaction with the chatbot.
+- [ ] **Monad:** _N/A based on provided code._
+- [ ] **Fluvio:** _N/A based on provided code._
+- [ ] **Base:** _N/A based on provided code._
+- [ ] **Screenpipe:** _N/A based on provided code._
+- [ ] **Stellar:** _N/A based on provided code._
 
 ---
 
@@ -68,7 +79,7 @@ Highlight the most important features of your project:
 
 - ✅ **AI-Powered Focus Analysis:** Real-time determination of user focus state based on webcam (gaze direction) and screen content (work vs. non-work apps) using Groq Vision API.
 - ✅ **Session Tracking & Management:** Start, stop, and automatically track focus/distraction time and application usage during dedicated sessions.
-- ✅ **Interactive AI Chat Assistant:** Engage in text or voice conversations with an AI assistant that understands your productivity data (Today, Yesterday, Last Session, Current Status) and provides contextual insights and feedback.
+- ✅ **Interactive AI Chat Assistant:** Engage in text or voice conversations with an AI assistant that understands your productivity data (Today, Yesterday, Last Session, Current Status) and provides contextual insights and feedback, powered by Groq LLM & STT.
 - ✅ **Data Visualization & History:** View aggregated daily/session statistics (Focus Time, Focus %, App Usage) via charts and browse a detailed log of past sessions with inline details and app usage breakdowns.
 - ✅ **Secure User Authentication:** Standard registration and login functionality using JWT for secure access to personal data and session tracking.
 - ✅ **Real-time Feedback Loop:** Dashboard provides live updates on elapsed session time and the latest analysis results from the AI.
@@ -141,7 +152,7 @@ npm start # Or npm run dev if you have a dev script
 cd ../frontend # Assuming frontend is sibling to backend
 npm install
 npm start
-
+```
 
 The frontend should now be accessible (usually at http://localhost:3000) and communicating with the backend (running at http://localhost:8080 or your specified port).
 
@@ -149,21 +160,19 @@ The frontend should now be accessible (usually at http://localhost:3000) and com
 
 List improvements, extensions, or follow-up features:
 
-📈 Advanced Analytics: Implement weekly/monthly reports, identify long-term trends, and provide more granular insights into distraction triggers.
+📈 Deeper Analytics & Insights: Implement weekly/monthly summaries, identify recurring distraction patterns (time of day, specific apps), and offer more proactive insights through the chatbot.
 
-🎯 Goal Setting: Allow users to set focus goals (e.g., duration, percentage) and track progress.
+🎯 Customizable Goals & Targets: Allow users to set specific focus duration or percentage goals per day/week and visualize progress towards them.
 
-✨ Personalized Recommendations: Suggest break times or focus techniques based on detected patterns of distraction.
+✨ Personalized Nudges & Tips: Based on detected patterns, the chatbot could suggest taking a break, blocking a specific distracting app temporarily, or offer tailored focus techniques.
 
-📅 Integrations: Connect with calendar apps to automatically associate sessions with events or task management tools (e.g., Todoist, Jira).
+📅 Calendar/Task Integration: Connect with tools like Google Calendar or Todoist to automatically link focus sessions to specific tasks or events, providing better context for analysis.
 
-🔔 Customizable Alerts: Allow users to configure alerts for prolonged distraction periods.
+🚫 Website/App Blocking (Optional): Explore integrations with browser extensions or system tools to optionally block user-defined distracting sites/apps during a focus session.
 
-📱 Mobile Companion App: A simpler app for viewing stats and maybe starting/stopping sessions remotely.
+📱 Mobile Companion App: Develop a simple mobile app (React Native?) primarily for viewing stats on the go and interacting with the chatbot.
 
-🛡️ Security Enhancements: Implement refresh tokens, more robust input validation, and potential end-to-end encryption for chat (if needed).
-
-🌐 Localization: Add support for multiple languages in the UI and potentially the chatbot interaction.
+🌐 Improved Accessibility & Localization: Enhance UI accessibility and add multi-language support for broader usability.
 
 📎 Resources / Credits
 
@@ -175,8 +184,9 @@ AI Services: Groq Cloud API (groq-sdk)
 
 Development Tools: dotenv, nodemon (likely used), cors, multer
 
-Inspiration/Concepts: Productivity tracking tools, AI assistants.
+Inspiration/Concepts: Productivity tracking tools, AI assistants, real-time data processing applications.
 
 🏁 Final Words
 
-[User Input Required: Share your hackathon journey — challenges (e.g., prompt engineering, state synchronization, stream handling), key learnings (e.g., using vision models, real-time data flow), fun moments, or shout-outs to mentors/sponsors!]
+Building Focus Guardian during this hackathon was an exciting dive into the potential of real-time AI. Leveraging Groq's incredible speed allowed us to create a tool that provides immediate feedback on user focus, something we felt was crucial for a productivity application. The biggest challenge was orchestrating the flow of data – capturing streams, processing images, getting quick analysis from Groq Vision, updating the database, and reflecting changes instantly on the frontend, all while managing the complexities of the AI Chat Assistant's context. Integrating the multimodal aspects (vision, text, speech-to-text) via Groq was a fantastic learning experience. We're proud of creating a functional prototype that showcases how low-latency AI can power genuinely useful, interactive applications. It was a intense but rewarding journey for Team Legion Hackers!
+
