@@ -217,9 +217,9 @@ Do not explain your reasoning. Only output the JSON.
                 // Atomically Update Session document fields
                 session.lastApiCallTimestamp = now; // Update the rate limit timestamp for this session
                 if (focus) {
-                    session.focusTime += timeIncrement;
+                    session.focusTime += timeIncrement+2;
                 } else {
-                    session.distractionTime += timeIncrement;
+                    session.distractionTime += timeIncrement+2;
                 }
                 // Use the sanitized key for the Map
                 const currentSessionAppTime = session.appUsage.get(sanitizedAppName) || 0;
