@@ -51,7 +51,7 @@ function LoginPage() {
 
   return (
     <div className="login-page">
-       <Navbar />
+       <Navbar hideLoginButton={true} />
       {/* Main Content */}
       <main className="login-main">
         <div className="login-background-pattern" />

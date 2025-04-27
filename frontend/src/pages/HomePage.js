@@ -21,8 +21,8 @@ const HomePage = () => {
   const [isq3Open, setIsq3Open]           = useState(false);
   const [isq4Open, setIsq4Open]           = useState(false);
   const [showThankYou, setShowThankYou]   = useState(false);
-  const [wrapperWidth, setWrapperWidth] = useState(0);
-const wrapperRef               = useRef(null);
+  const [wrapperWidth, setWrapperWidth]   = useState(0);
+  const wrapperRef                        = useRef(null);
 
   const [formData, setFormData]           = useState({ name:'', email:'', message:'' });
   const [activeTestimonial, setActiveTestimonial] = useState(0);
@@ -33,7 +33,7 @@ const wrapperRef               = useRef(null);
       The team dashboard keeps everyone aligned, and the smart break reminders have helped me maintain energy all day.”`,
       author: "Sarah Johnson",
       role: "UX Designer",
-      img: "user1.jpg",
+      img: "testi1.jpg",
     },
     {
       text: `“The focus sessions feature is a game‑changer. I've doubled my output while working fewer hours.  
@@ -41,7 +41,7 @@ const wrapperRef               = useRef(null);
       And the distraction blocker has kept me on track during critical design sprints.”`,
       author: "Michael Chen",
       role: "Software Engineer",
-      img: "user2.jpg",
+      img: "testim2.jpg",
     },
     {
       text: `“Best investment in my productivity this year. The group focus rooms keep our remote team aligned and focused.  
@@ -49,11 +49,15 @@ const wrapperRef               = useRef(null);
       Exportable progress charts make our stand‑ups a breeze.”`,
       author: "Emma Wilson",
       role: "Project Manager",
-      img: "user3.jpg",
+      img: "testi3.jpg",
     },
   ];
 
+  
+
   const navigate = useNavigate();
+
+  // measure wrapper width for carousel
   useEffect(() => {
     const updateWidth = () => {
       if (wrapperRef.current) {
@@ -65,20 +69,23 @@ const wrapperRef               = useRef(null);
     return () => window.removeEventListener('resize', updateWidth);
   }, []);
 
-  const prevTestimonial = () =>
-    setActiveTestimonial((prev) =>
-      prev > 0 ? prev - 1 : testimonials.length - 1
-    );
-  const nextTestimonial = () =>
-    setActiveTestimonial((prev) =>
-      prev < testimonials.length - 1 ? prev + 1 : 0
-    );
+    const nextTestimonial = () => {
+    setActiveTestimonial(prev => (prev + 1) % testimonials.length);
+  };
 
-  // Scroll listener
+  const prevTestimonial = () => {
+    setActiveTestimonial(prev => (prev - 1 + testimonials.length) % testimonials.length);};
+
+  // change nav style on scroll
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 50);
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(nextTestimonial, 20000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleGetStarted = () => navigate('/register');
@@ -101,21 +108,21 @@ const wrapperRef               = useRef(null);
     <div className="home-container">
        <Navbar />
       {/* Hero */}
-      <section id="home" className="hero-section">
-        <div className="hero-overlay" />
-        <div className="hero-content container">
-          <h1 className="hero-heading">
-            Enhance Your Productivity<br />
-            with Focus Guardian
-          </h1>
-          <p className="hero-text">
-            Leverage the power of AI to track and boost your productivity. Get insights that help you stay on task.
-          </p>
-          <button className="hero-button" onClick={handleGetStarted}>
-            Get Started
-          </button>
-        </div>
-      </section>
+<section id="home" className="hero-section">
+  <div className="hero-overlay" />
+  <div className="hero-content container">
+    <h1 className="hero-heading">
+      Enhance Your Productivity<br />
+      with Focus Guardian
+    </h1>
+    <p className="hero-text">
+      Leverage the power of AI to track and boost your productivity. Get insights that help you stay on task.
+    </p>
+    <button className="hero-button" onClick={handleGetStarted}>
+      Get Started
+    </button>
+  </div>
+</section>
 
 {/* Features */}
 <section id="features" className="features-section">
@@ -136,7 +143,9 @@ const wrapperRef               = useRef(null);
             <li>Daily & weekly summaries</li>
           </ul>
         </div>
-        <img src="/images/image1.jpg" alt="Session Management" className="card-image" />
+        <div className="card-image-container">
+          <img src="/images/image1.jpg" alt="Session Management" className="card-image" />
+        </div>
       </div>
 
       {/* Card 2 */}
@@ -170,15 +179,16 @@ const wrapperRef               = useRef(null);
             <li>Ambient background sounds</li>
           </ul>
         </div>
-        <img src="/images/image3.jpg" alt="Focus Control" className="card-image" />
+        <div className="card-image-container">
+          <img src="/images/image3.jpg" alt="Focus Control" className="card-image" />
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-
       
-      {/* Call To Action */}
+    {/* Call To Action */}
 <section className="cta-section">
   <div className="cta-box container">
     <h2 className="cta-heading">Start Your Productivity Journey</h2>
@@ -197,7 +207,7 @@ const wrapperRef               = useRef(null);
 </section>
 
 
-      {/* Team */}
+     {/* Team */}
 <section id="team" className="team-section">
   <div className="container">
     <h2 className="section-heading">Our Team</h2>
@@ -205,12 +215,12 @@ const wrapperRef               = useRef(null);
       {[
         { name: 'Rajath N H', role: 'Backend Developer', img: 'Rajath.png' },
         { name: 'Yashaswini D B', role: 'Database Architect', img: 'Yashaswini.jpg' },
-        { name: 'Preeti Bhat', role: 'AI Engineer', img: 'Preeti.jpg' },
+        { name: 'Preeti Bhat', role: 'Assistant Backend Developer', img: 'Preeti.jpg' },
         { name: 'Prajnan Vaidya', role: 'Frontend Developer', img: 'Prajnan.jpg' },
       ].map((member) => (
         <div className="team-card hover-scale" key={member.name}>
           <img
-            src={`https://trash-2-cash.vercel.app/images/team/${member.img}`}
+            src={`/images/team/${member.img}`}
             alt={member.name}
             className="team-photo"
           />
@@ -222,66 +232,75 @@ const wrapperRef               = useRef(null);
   </div>
 </section>
 
+
 {/* Testimonials */}
 <section id="testimonials" className="testimonials-section">
-  <div className="container">
-    <div className="section-divider" />
-    <h2 className="section-heading">Testimonials</h2>
+      <div className="container">
+        <div className="section-divider" />
+        <h2 className="section-heading">Testimonials</h2>
 
-    <div className="testimonials-wrapper" ref={wrapperRef}>
-      <div
-        className="testimonial-cards-container"
-        style={{
-          transform: `translateX(-${activeTestimonial * wrapperWidth}px)`,
-        }}
-      >
-        {testimonials.map((t, i) => (
+        <div className="testimonials-wrapper" ref={wrapperRef}>
           <div
-            key={i}
-            className="testimonial-card"
-            style={{ opacity: activeTestimonial === i ? 1 : 0.5 }}
+            className="testimonial-cards-container"
+            style={{
+              transform: `translateX(-${activeTestimonial * 100}%)`,
+              transition: 'transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)'
+            }}
           >
-            <p className="testimonial-text">{t.text}</p>
-            <div className="testimonial-author">
-              <img
-                src={`/images/${t.img}`}
-                alt={t.author}
-                className="author-photo"
-              />
-              <div>
-                <h4 className="author-name">{t.author}</h4>
-                <p className="author-role">{t.role}</p>
+            {testimonials.map((t, i) => (
+              <div
+                key={i}
+                className={`testimonial-card ${i === activeTestimonial ? 'active' : ''}`}
+              >
+                <p className="testimonial-text">{t.text}</p>
+                <div className="testimonial-author">
+                  <img
+                    src={`/images/${t.img}`}
+                    alt={t.author}
+                    className="author-photo"
+                  />
+                  <div>
+                    <h4 className="author-name">{t.author}</h4>
+                    <p className="author-role">{t.role}</p>
+                  </div>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <div className="testimonial-controls">
-        <button className="arrow-btn prev" onClick={prevTestimonial}>
-          <FaChevronLeft />
-        </button>
-        <div className="indicators">
-          {testimonials.map((_, i) => (
-            <button
-              key={i}
-              className={`indicator ${i === activeTestimonial ? "active" : ""}`}
-              onClick={() => setActiveTestimonial(i)}
-            />
-          ))}
+          <div className="testimonial-controls">
+            <button 
+              className="arrow-btn prev" 
+              onClick={prevTestimonial}
+              aria-label="Previous testimonial"
+            >
+              <FaChevronLeft />
+            </button>
+            <div className="indicators">
+              {testimonials.map((_, i) => (
+                <button
+                  key={i}
+                  className={`indicator ${i === activeTestimonial ? "active" : ""}`}
+                  onClick={() => setActiveTestimonial(i)}
+                  aria-label={`View testimonial ${i + 1}`}
+                />
+              ))}
+            </div>
+            <button 
+              className="arrow-btn next" 
+              onClick={nextTestimonial}
+              aria-label="Next testimonial"
+            >
+              <FaChevronRight />
+            </button>
+          </div>
         </div>
-        <button className="arrow-btn next" onClick={nextTestimonial}>
-          <FaChevronRight />
-        </button>
       </div>
-    </div>
-  </div>
-</section>
+    </section>
 
-
+    {/* FAQs Section */}
 <section className="contact-faqs">
   <div className="container">
-    {/* FAQs Section */}
     <div className="faqs">
       <h2 className="section-heading">Frequently Asked Questions</h2>
       <p className="section-intro">

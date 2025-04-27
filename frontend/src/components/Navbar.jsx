@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { FaFacebookF, FaTwitter, FaLinkedinIn, FaInstagram } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import './navbar.css';
 
-const Navbar = () => {
+const Navbar = ({ hideLoginButton = false }) => { // <- added prop
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled]     = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -17,17 +16,26 @@ const Navbar = () => {
   return (
     <nav className={`navbar ${isScrolled ? 'scrolled' : ''}`}>      
       <div className="nav-content container">
-        <div className="logo-container hover-scale" onClick={() => navigate('/') }>
+        <div className="logo-container hover-scale" onClick={() => navigate('/')}>
           <div className="logo-circle">
             <img src="/images/logo.png" alt="Focus Guardian Logo" className="logo-image" />
           </div>
           <span className="brand-name">Focus Guardian</span>
         </div>
+        
         <div className="desktop-nav">
           <a href="/#home" className="nav-link">Home</a>
           <a href="/#features" className="nav-link">Features</a>
           <a href="/#testimonials" className="nav-link">Testimonials</a>
           <a href="/#contact" className="nav-link">Contact</a>
+          {!hideLoginButton && ( // <- only show if not hidden
+            <button 
+              className="nav-login-btn"
+              onClick={() => navigate('/login')}
+            >
+              Login
+            </button>
+          )}
         </div>
         <button
           className={`mobile-menu-btn ${isMenuOpen ? 'open' : ''}`}
@@ -39,11 +47,23 @@ const Navbar = () => {
           <span className="menu-line bottom" />
         </button>
       </div>
+      
       <div className={`mobile-nav ${isMenuOpen ? 'open' : ''}`}>
         <a href="/#home" className="mobile-nav-link">Home</a>
         <a href="/#features" className="mobile-nav-link">Features</a>
         <a href="/#testimonials" className="mobile-nav-link">Testimonials</a>
         <a href="/#contact" className="mobile-nav-link">Contact</a>
+        {!hideLoginButton && ( // <- only show if not hidden
+          <button 
+            className="mobile-nav-link"
+            onClick={() => {
+              navigate('/login');
+              setIsMenuOpen(false);
+            }}
+          >
+            Login
+          </button>
+        )}
       </div>
     </nav>
   );
