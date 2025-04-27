@@ -406,7 +406,7 @@ const handleSendMessage = useCallback(async () => {
       {/* Use className for the messages area */}
       <div className={styles.messagesArea} ref={messagesContainerRef} style={{
           // Use the PUBLIC_URL environment variable provided by CRA/similar build tools
-          backgroundImage: ``,
+          backgroundImage: `url(${process.env.PUBLIC_URL}/productivity-pattern.png)`,
 
           // Explicitly set other background properties here too
           backgroundColor: fallbackBgColor, // Fallback color
