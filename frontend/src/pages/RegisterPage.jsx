@@ -22,7 +22,9 @@ function RegisterPage() {
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
-
+  useEffect(() => {
+    window.scrollTo(0, 0); // Scroll to the top left corner
+  }, []); 
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setError(null);

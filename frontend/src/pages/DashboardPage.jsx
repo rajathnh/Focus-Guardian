@@ -327,7 +327,7 @@ export default function DashboardPage() {
             <button onClick={() => setError(null)}>×</button>
           </div>
         )}
-
+        
         <section className="session-card">
           <div className="session-status">
             {activeSession ? (
@@ -389,7 +389,11 @@ export default function DashboardPage() {
             </div>
           </section>
         )}
-
+        <div className="session-history-link" style={{ marginBottom: '20px', textAlign: 'center' }}> {/* Added inline style for spacing/alignment */}
+          <Link to="/session" className="btn btn-secondary">
+            View Session History & Analytics →
+          </Link>
+        </div>
         <section className="chatbot-section">
           <h2>Productivity Assistant</h2>
           <div className="chatbot-content">
@@ -397,11 +401,11 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <div className="session-history-link">
+        {/* <div className="session-history-link">
           <Link to="/session" className="btn btn-secondary">
             View Session History & Analytics →
           </Link>
-        </div>
+        </div> */}
       </div>
 
       {/* Add hidden video and canvas elements for capturing media */}
