@@ -11,7 +11,7 @@ const groq = new Groq({
 });
 
 const ANALYSIS_INTERVAL_SECONDS = 3; // How often frontend sends data (used for calculating time deltas)
-const MIN_SECONDS_BETWEEN_CALLS = 3; 
+const MIN_SECONDS_BETWEEN_CALLS = 0; 
 const MIN_MS_BETWEEN_CALLS = MIN_SECONDS_BETWEEN_CALLS * 1000;
 // @desc    Start a new session
 // @route   POST /api/sessions/start
@@ -204,7 +204,7 @@ Do not explain your reasoning. Only output the JSON.
                 }
         
                 // The time increment represents the duration this successful analysis covers
-                const timeIncrement = MIN_SECONDS_BETWEEN_CALLS; // Use the rate limit interval duration
+                const timeIncrement = 5; // Use the rate limit interval duration
         
                 // Fetch User (re-fetch is safer than relying only on middleware state)
                 const user = await User.findById(userId);
@@ -217,9 +217,9 @@ Do not explain your reasoning. Only output the JSON.
                 // Atomically Update Session document fields
                 session.lastApiCallTimestamp = now; // Update the rate limit timestamp for this session
                 if (focus) {
-                    session.focusTime += timeIncrement+2;
+                    session.focusTime += timeIncrement;
                 } else {
-                    session.distractionTime += timeIncrement+2;
+                    session.distractionTime += timeIncrement;
                 }
                 // Use the sanitized key for the Map
                 const currentSessionAppTime = session.appUsage.get(sanitizedAppName) || 0;
