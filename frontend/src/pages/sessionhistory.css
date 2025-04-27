@@ -180,7 +180,35 @@
   padding-bottom: 0.5rem;
   margin-bottom: 1rem;
 }
+.pagination-controls button {
+  /* Use variables if available, otherwise specific values */
+  background-color: var(--clr-primary, #5B7DB1); /* Match your theme */
+  color: white;
+  border: none;
+  padding: 8px 15px;      /* Button padding */
+  margin-top: 30px; /* Example: Increased from 20px to 30px */
+  /* Space around buttons */
+  border-radius: 6px;     /* Slightly rounded corners */
+  cursor: pointer;
+  font-size: 0.9rem;        /* Adjust font size if needed */
+  transition: background-color 0.2s ease;
+}
 
+.pagination-controls button:hover:not(:disabled) {
+  background-color: #4a6b9b; /* Darker shade for hover */
+}
+
+.pagination-controls button:disabled {
+  background-color: #ccc;    /* Grey out disabled buttons */
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.pagination-controls span {
+  font-weight: 500;         /* Make page number slightly bolder */
+  color: var(--clr-dark, #2D4357); /* Match your text color */
+  margin: 0 5px;          /* Add a little space around the text */
+}
 /* Fade‑in keyframes */
 @keyframes fadeInDetail {
   0%   { opacity: 0; max-height: 0; overflow: hidden; }

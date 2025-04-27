@@ -356,7 +356,12 @@ function SessionHistoryPage() {
     // --- Rendering Logic ---
     const isLoading = historyLoading || dailyLoading || dailyAppLoading;
     const displayError = historyError || dailyError || dailyAppError;
-
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    // Slice the history array based on current page and items per page
+    const currentHistoryItems = history.slice(indexOfFirstItem, indexOfLastItem);
+    // Calculate total pages needed
+    const totalPages = Math.ceil(history.length / itemsPerPage);
     return (
         <div className="session-history-page">
           <Navbar />
@@ -421,80 +426,109 @@ function SessionHistoryPage() {
                     ? <p style={styles.errorText}>Could not load the detailed session log.</p>
                     : history.length === 0
                       ? <p>No sessions recorded yet.</p>
-                      : (
-                        <div className="table-container">
-                          <div className="flex-table">
-                            {/* Header Row */}
-                            <div className="flex-header">
-                              <div className="cell">Start Time</div>
-                              <div className="cell">Duration</div>
-                              <div className="cell">Focus %</div>
-                              <div className="cell">Focus Time</div>
-                              <div className="cell">Distraction</div>
-                              <div className="cell">Top App</div>
-                              <div className="cell actions">Details</div>
-                            </div>
-                            {/* Data Rows */}
-                            {history.map(session => {
-                              const isExpanded = expandedSessionId === session._id;
-                              const topAppEntry = Object.entries(session.appUsage || {}).sort(([, a], [, b]) => b - a)[0];
-                              const topAppName = topAppEntry ? topAppEntry[0].replace(/_/g, '.') : 'N/A';
-                              const topAppTime = topAppEntry ? topAppEntry[1] : 0;
-    
-                              return (
-                                <React.Fragment key={session._id}>
-                                  <div className={`flex-row${isExpanded ? ' expanded' : ''}`}>
-                                    <div className="cell">{new Date(session.startTime).toLocaleString()}</div>
-                                    <div className="cell duration">{formatDuration(session.startTime, session.endTime)}</div>
-                                    <div className="cell">{formatFocusPercent(session.focusTime, session.distractionTime)}</div>
-                                    <div className="cell">{formatTimeDetailed(session.focusTime)}</div>
-                                    <div className="cell">{formatTimeDetailed(session.distractionTime)}</div>
-                                    <div className="cell">{topAppName !== 'N/A' ? `${topAppName} (${formatMinutesOnly(topAppTime)})` : 'N/A'}</div>
-                                    <div className="cell actions">
-                                      <button
-                                        onClick={() => fetchExpandedSessionDetails(session._id)}
-                                        disabled={expandedDetailLoading && expandedSessionId === session._id}
-                                        style={styles.detailButton}
-                                        title={isExpanded ? "Hide Details" : "Show Details"}
-                                      >
-                                        {expandedDetailLoading && expandedSessionId === session._id ? '…' : (isExpanded ? '▼' : '▶')}
-                                      </button>
-                                    </div>
-                                  </div>
-                                  {isExpanded && (
-                                    <div className="detail-row">
-                                      {expandedDetailLoading && <p style={{ padding: '15px', textAlign: 'center' }}>Loading details...</p>}
-                                      {expandedDetailError && <p style={{ color: 'red', padding: '15px', textAlign: 'center' }}>Error: {expandedDetailError}</p>}
-                                      {expandedSessionData && !expandedDetailLoading && !expandedDetailError && (
-                                        <div className="detail-content">
-                                          <div>
-                                            <h4 style={styles.detailHeading}>Summary</h4>
-                                            <p><strong>Started:</strong> {new Date(expandedSessionData.startTime).toLocaleString()}</p>
-                                            <p><strong>Ended:</strong> {expandedSessionData.endTime ? new Date(expandedSessionData.endTime).toLocaleString() : 'In Progress'}</p>
-                                            <p><strong>Duration:</strong> {formatDuration(expandedSessionData.startTime, expandedSessionData.endTime)}</p>
-                                            <p><strong>Focus %:</strong> <span style={{ fontWeight: 'bold' }}>{formatFocusPercent(expandedSessionData.focusTime, expandedSessionData.distractionTime)}</span></p>
-                                            <p><strong>Focus Time:</strong> <span style={{ color: 'green' }}>{formatTimeDetailed(expandedSessionData.focusTime)}</span></p>
-                                            <p><strong>Distraction Time:</strong> <span style={{ color: 'red' }}>{formatTimeDetailed(expandedSessionData.distractionTime)}</span></p>
-                                          </div>
-                                          <div>
-                                            <h4 style={styles.detailHeading}>Application Usage (This Session)</h4>
-                                            <AppUsagePieChart
-                                              sessionData={expandedSessionData}
-                                              options={pieChartOptions}
-                                              getRandomColor={getRandomColor}
-                                            />
-                                          </div>
+                      : ( // Start of block if history exists and no error
+                        // Using a Fragment here as the direct child of the ternary's else branch
+                        // This groups the table and pagination logically
+                        <>
+                            <div className="table-container">
+                              <div className="flex-table">
+                                {/* Header Row */}
+                                <div className="flex-header">
+                                  <div className="cell">Start Time</div>
+                                  <div className="cell">Duration</div>
+                                  <div className="cell">Focus %</div>
+                                  <div className="cell">Focus Time</div>
+                                  <div className="cell">Distraction</div>
+                                  <div className="cell">Top App</div>
+                                  <div className="cell actions">Details</div>
+                                </div>
+                                {/* Data Rows - Mapped from currentHistoryItems */}
+                                {currentHistoryItems.map(session => { // Step C change applied
+                                  const isExpanded = expandedSessionId === session._id;
+                                  const topAppEntry = Object.entries(session.appUsage || {}).sort(([, a], [, b]) => b - a)[0];
+                                  const topAppName = topAppEntry ? topAppEntry[0].replace(/_/g, '.') : 'N/A';
+                                  const topAppTime = topAppEntry ? topAppEntry[1] : 0;
+
+                                  return (
+                                    <React.Fragment key={session._id}>
+                                      {/* Normal Row */}
+                                      <div className={`flex-row${isExpanded ? ' expanded' : ''}`}>
+                                        <div className="cell">{new Date(session.startTime).toLocaleString()}</div>
+                                        <div className="cell duration">{formatDuration(session.startTime, session.endTime)}</div>
+                                        <div className="cell">{formatFocusPercent(session.focusTime, session.distractionTime)}</div>
+                                        <div className="cell">{formatTimeDetailed(session.focusTime)}</div>
+                                        <div className="cell">{formatTimeDetailed(session.distractionTime)}</div>
+                                        <div className="cell">{topAppName !== 'N/A' ? `${topAppName} (${formatMinutesOnly(topAppTime)})` : 'N/A'}</div>
+                                        <div className="cell actions">
+                                          <button
+                                            onClick={() => fetchExpandedSessionDetails(session._id)}
+                                            disabled={expandedDetailLoading && expandedSessionId === session._id}
+                                            style={styles.detailButton}
+                                            title={isExpanded ? "Hide Details" : "Show Details"}
+                                          >
+                                            {expandedDetailLoading && expandedSessionId === session._id ? '…' : (isExpanded ? '▼' : '▶')}
+                                          </button>
+                                        </div>
+                                      </div>
+                                      {/* Expanded Detail Row (conditionally rendered) */}
+                                      {isExpanded && (
+                                        <div className="detail-row">
+                                          {expandedDetailLoading && <p style={{ padding: '15px', textAlign: 'center' }}>Loading details...</p>}
+                                          {expandedDetailError && <p style={{ color: 'red', padding: '15px', textAlign: 'center' }}>Error: {expandedDetailError}</p>}
+                                          {expandedSessionData && !expandedDetailLoading && !expandedDetailError && (
+                                            <div className="detail-content">
+                                              {/* Summary Div */}
+                                              <div>
+                                                <h4 style={styles.detailHeading}>Summary</h4>
+                                                <p><strong>Started:</strong> {new Date(expandedSessionData.startTime).toLocaleString()}</p>
+                                                <p><strong>Ended:</strong> {expandedSessionData.endTime ? new Date(expandedSessionData.endTime).toLocaleString() : 'In Progress'}</p>
+                                                <p><strong>Duration:</strong> {formatDuration(expandedSessionData.startTime, expandedSessionData.endTime)}</p>
+                                                <p><strong>Focus %:</strong> <span style={{ fontWeight: 'bold' }}>{formatFocusPercent(expandedSessionData.focusTime, expandedSessionData.distractionTime)}</span></p>
+                                                <p><strong>Focus Time:</strong> <span style={{ color: 'green' }}>{formatTimeDetailed(expandedSessionData.focusTime)}</span></p>
+                                                <p><strong>Distraction Time:</strong> <span style={{ color: 'red' }}>{formatTimeDetailed(expandedSessionData.distractionTime)}</span></p>
+                                              </div>
+                                              {/* App Usage Div */}
+                                              <div>
+                                                <h4 style={styles.detailHeading}>Application Usage (This Session)</h4>
+                                                <AppUsagePieChart
+                                                  sessionData={expandedSessionData}
+                                                  options={pieChartOptions} // Ensure correct options are passed
+                                                  getRandomColor={getRandomColor}
+                                                />
+                                              </div>
+                                            </div>
+                                          )}
                                         </div>
                                       )}
-                                    </div>
-                                  )}
-                                </React.Fragment>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )
+                                    </React.Fragment>
+                                  );
+                                })} {/* End of .map() */}
+                              </div> {/* End flex-table */}
+                            </div> {/* End table-container */}
+
+                            {/* --- Pagination Controls (STEP D - Placed after table container) --- */}
+                            {history.length > itemsPerPage && ( // Only show if more items than fit on one page
+                                <div className="pagination-controls">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} // Go back
+                                    disabled={currentPage === 1 || isLoading} // Disable on first page
+                                >
+                                    {'<'} Previous {/* Corrected HTML entity */}
+                                </button>
+                                <span> Page {currentPage} of {totalPages} </span>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} // Go next
+                                    disabled={currentPage === totalPages || isLoading} // Disable on last page
+                                >
+                                    Next {'>'} {/* Corrected HTML entity */}
+                                </button>
+                                </div>
+                            )}
+                            {/* --- END Pagination Controls --- */}
+                        </> // End React Fragment grouping table and pagination
+                      ) // End of the ternary's "else" block
                   }
+                  {/* The main conditional block for historyError/history.length ended above */}
                 </section>
     
               </>
