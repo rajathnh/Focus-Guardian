@@ -489,3 +489,36 @@
   justify-content: center;
   text-align: center;
 }
+.back-button {
+  background: var(--clr-primary, #5B7DB1);
+  color: white;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+.back-button:hover {
+  background: #4a6b9b;
+}
+
+.pagination-controls button {
+  background-color: var(--clr-primary, #5B7DB1);
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  margin-top: 30px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s ease;
+}
+
+.pagination-controls button:hover:not(:disabled) {
+  background-color: #4a6b9b;
+}
+
+.pagination-controls button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
