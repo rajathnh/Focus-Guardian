@@ -34,7 +34,7 @@ Leveraging the **exceptional low latency of Groq's AI inference**, Focus Guardia
 - Prajnan Vaidya
 - Preeti Bhat
 - Yashaswini D B
-*(Feel free to add GitHub/LinkedIn links or Roles next to names)*
+
 
 ### Your Approach:
 We chose Problem Statement 1 to specifically showcase the practical application of Groq's high-speed AI inference. We recognized that building a truly *real-time* productivity tracker, capable of analyzing visual data frequently without significant lag, was only feasible with technology like Groq's LPU. Standard APIs would introduce too much latency, making the feedback loop ineffective.
@@ -58,18 +58,13 @@ We chose Problem Statement 1 to specifically showcase the practical application 
 - **Backend:** Node.js, Express.js
 - **Database:** MongoDB (with Mongoose ODM)
 - **APIs:** Groq API
-- **Hosting:** Vercel (`https://focus-guardian-five.vercel.app/`)
+- **Hosting:** Vercel + Cloud Run(`https://focus-guardian-five.vercel.app/`)
 
 ### Sponsor Technologies Used (if any):
 - [✅] **Groq:** Used extensively for:
     - **Vision Analysis:** Analyzing combined webcam/screen images via Llama 4 Scout model at low latency to determine user focus, application, and activity in near real-time.
     *   **LLM Chat:** Powering the AI Chat Assistant using Llama 3 model for fast, contextual conversation based on injected user data.
     *   **Speech-to-Text:** Transcribing user audio messages rapidly via Whisper model for seamless voice interaction with the chatbot.
-- [ ] **Monad:** _N/A based on provided code._
-- [ ] **Fluvio:** _N/A based on provided code._
-- [ ] **Base:** _N/A based on provided code._
-- [ ] **Screenpipe:** _N/A based on provided code._
-- [ ] **Stellar:** _N/A based on provided code._
 
 ---
 
@@ -91,15 +86,15 @@ Highlight the most important features of your project:
 ## 📽️ Demo & Deliverables
 
 - **Demo Video Link:** `[User Input Required: Paste YouTube or Loom link here]`
-- **Pitch Deck / PPT Link:** `[User Input Required: Paste Google Slides / PDF link here]`
+- **Pitch Deck / PPT Link:** `[https://drive.google.com/file/d/1DAJmVCrJRfzepIArf9m2PKD9NkQZoa-7/view?usp=sharing]`
 
 ---
 
 ## ✅ Tasks & Bonus Checklist
 
-- [ ] **All members of the team completed the mandatory task - Followed at least 2 of our social channels and filled the form** (Details in Participant Manual)
-- [ ] **All members of the team completed Bonus Task 1 - Sharing of Badges and filled the form (2 points)** (Details in Participant Manual)
-- [ ] **All members of the team completed Bonus Task 2 - Signing up for Sprint.dev and filled the form (3 points)** (Details in Participant Manual)
+- [✅] **All members of the team completed the mandatory task - Followed at least 2 of our social channels and filled the form** (Details in Participant Manual)
+- [✅] **All members of the team completed Bonus Task 1 - Sharing of Badges and filled the form (2 points)** (Details in Participant Manual)
+- [✅] **All members of the team completed Bonus Task 2 - Signing up for Sprint.dev and filled the form (3 points)** (Details in Participant Manual)
 
 *(Mark with ✅ if completed)*
 
