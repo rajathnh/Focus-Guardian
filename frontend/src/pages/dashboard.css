@@ -6,7 +6,7 @@
     --clr-text: #4A5568;
     --clr-light: #FFFFFF;
     --clr-bg: #F9FBFD;
-    --shadow: 0 4px 24px rgba(0,0,0,0.08);
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
     --radius: 12px;
     --transition: 0.3s ease;
     --gradient-primary: linear-gradient(135deg, var(--clr-primary) 0%, #4a6b9b 100%);
@@ -17,7 +17,7 @@
   
   .dashboard-page {
     font-family: 'Inter', sans-serif;
-    background: linear-gradient(145deg, #f8fbff 0%, #f0f5fa 100%);
+    background: linear-gradient(145deg, #edf1f6 0%, #d5f5f5 100%);
     min-height: 100vh;
   }
   
@@ -41,7 +41,7 @@
   .dashboard-header h1 {
     color: var(--clr-dark);
     font-size: 2rem;
-    font-weight: 700;
+    font-weight: 800;
     margin: 0;
   }
   
@@ -54,9 +54,9 @@
   
   /* Session Section */
   .session-card {
-    background: linear-gradient(145deg, 
-      rgba(91, 125, 177, 0.1) 0%, 
-      rgba(255, 255, 255, 0.8) 100%
+    background: linear-gradient(10deg, 
+      rgba(77, 107, 151, 0.38) 0%, 
+      rgba(200, 244, 240, 0.8) 100%
     );
     border: 1px solid rgba(91, 125, 177, 0.1);
     border-radius: var(--radius);
@@ -183,7 +183,7 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    border: 1px solid transparent;
+    border: 2px solid transparent;
   }
   
   .btn-primary {
@@ -259,9 +259,9 @@
   /* Chatbot Section */
   .chatbot-section {
     background: linear-gradient(
-        135deg,
-        rgba(91, 125, 177, 0.08) 0%,
-        rgba(126, 200, 165, 0.08) 100%
+        15deg,
+        rgba(80, 110, 155, 0.3) 0%,
+        rgba(103, 163, 135, 0.2) 100%
       );
     border: 1px solid rgba(255, 182, 119, 0.1);
     width: 100%;
@@ -298,8 +298,8 @@
     bottom: 0;
     background: linear-gradient(
       45deg,
-      rgba(91, 125, 177, 0.05) 0%,
-      rgba(126, 200, 165, 0.05) 50%,
+      rgba(91, 125, 177, 0.1) 0%,
+      rgba(96, 152, 126, 0.05) 50%,
       rgba(255, 182, 119, 0.05) 100%
     );
     pointer-events: none;

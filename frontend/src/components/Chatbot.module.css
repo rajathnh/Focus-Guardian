@@ -3,12 +3,12 @@
 /* --- Variables --- */
 :root {
   --bg-main: #fcfdfe;             /* Very light, almost white cool background */
-  --bg-messages: #ffffff;         /* Pure white message area (used as fallback) */
+  --bg-messages: #abd6e6;         /* Pure white message area (used as fallback) */
   --bg-input-area: #f8fafc;      /* Slightly distinct input area bg */
   --border-color: #eaf0f6;       /* Soft, light blue-grey border */
   --text-primary: #1a202c;        /* Very dark grey (almost black) */
-  --text-secondary: #4a5568;      /* Medium grey */
-  --text-placeholder: #a0aec0;     /* Lighter grey for placeholder */
+  --text-secondary: #c9f7f0;      /* Medium grey */
+  --text-placeholder: #555a60;     /* Lighter grey for placeholder */
   --user-bubble-bg: #68D391;      /* Muted, calming green */
   --user-bubble-text: #ffffff;     /* White text on user bubble */
   --bot-bubble-bg: #f0f4f8;       /* Very light cool grey bot bubble */
@@ -220,4 +220,48 @@
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(5px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+
+/* Option 2 - Teal Gradient */
+.messageBubbleUser {
+  background: linear-gradient(135deg, #4CAF50 0%, #2196F3 100%);
+}
+
+/* Option 3 - Warm Gradient */
+.messageBubbleUser {
+  background: linear-gradient(135deg, #FF6B6B 0%, #FF9F43 100%);
+}
+
+/* Option 4 - Purple/Pink Gradient */
+.messageBubbleUser {
+  background: linear-gradient(135deg, #557c93 0%, #107c84 100%);
+}
+.messageBubbleUser {
+  text-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  font-weight: 400;
+  line-height: 1.4;
+}
+.messageBubbleBot {
+  background: #f5f5f5;
+  color: #333;
+  border-radius: 15px 15px 15px 0;
+  border: 1px solid #eee;
+}
+
+
+/* For Chatbot Messages */
+/* Option 2 - Warm subtle gradient */
+.messageBubbleBot {
+  background: linear-gradient(135deg, #f8f9fa 0%, #f1f3f5 100%);
+}
+
+/* Option 3 - Blue tint */
+.messageBubbleBot {
+  background: linear-gradient(135deg, #f4f7fb 0%, #e8f0fa 100%);
+}
+
+/* Option 4 - Green tint */
+.messageBubbleBot {
+  background: linear-gradient(135deg, #f4faf7 0%, #d4f8ea 100%);
 }
