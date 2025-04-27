@@ -2,105 +2,13 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
+import styles from './Chatbot.module.css';
 // import { createParser } from 'eventsource-parser';
 const API_URL = process.env.REACT_APP_API_BASE_URL;
 
 // Basic styling (consider moving to a CSS file or styled-components)
-const styles = {
-  chatContainer: {
-    border: '1px solid #ccc',
-    borderRadius: '8px',
-    padding: '15px',
-    width: '100%',
-    maxWidth: '100%',          // Allow full width within its parent
-    display: 'flex',
-    flexDirection: 'column',
-    backgroundColor: '#f9f9f9',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-  },
-  messagesArea: {
-    flexGrow: 1,              // Takes available space
-    height: '400px',          // Fixed height for the message area
-    overflowY: 'auto',        // Enable vertical scrolling ONLY for this div
-    border: '1px solid #e0e0e0',
-    backgroundColor: '#ffffff',
-    marginBottom: '10px',
-    padding: '10px',
-    borderRadius: '5px',
-    display: 'flex',
-    flexDirection: 'column', // Stack messages vertically
-  },
-  messageBubbleUser: {
-    alignSelf: 'flex-end',     // Align user messages to the right
-    margin: '5px 0',
-    padding: '10px 15px',
-    backgroundColor: '#dcf8c6', // Light green bubble
-    borderRadius: '15px 15px 0 15px', // Rounded corners
-    maxWidth: '80%',           // Limit message width
-    wordWrap: 'break-word',    // Wrap long words
-    whiteSpace: 'pre-wrap',    // Preserve line breaks
-  },
-  messageBubbleBot: {
-    alignSelf: 'flex-start',   // Align bot messages to the left
-    margin: '5px 0',
-    padding: '10px 15px',
-    backgroundColor: '#eeeeee', // Light grey bubble
-    borderRadius: '15px 15px 15px 0', // Rounded corners
-    maxWidth: '80%',
-    wordWrap: 'break-word',
-    whiteSpace: 'pre-wrap',
-  },
-  inputArea: {
-    display: 'flex',
-    alignItems: 'center',
-    marginTop: '10px',
-  },
-  inputField: {
-    flexGrow: 1,              // Input takes remaining space
-    padding: '10px',
-    border: '1px solid #ccc',
-    borderRadius: '20px',     // Rounded input field
-    marginRight: '10px',
-    fontSize: '1rem',
-  },
-  button: {
-    padding: '10px 15px',
-    cursor: 'pointer',
-    border: 'none',
-    borderRadius: '50%',       // Circular buttons
-    backgroundColor: '#007bff', // Blue send button
-    color: 'white',
-    fontSize: '1.2rem',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '40px',             // Fixed button size
-    height: '40px',
-    marginLeft: '5px',
-    transition: 'background-color 0.2s ease',
-    flexShrink: 0,             // Prevent buttons from shrinking
-  },
-  recordButton: {
-    backgroundColor: '#6c757d', // Grey record button
-  },
-  recordButtonRecording: {
-    backgroundColor: '#dc3545', // Red when recording
-  },
-  buttonDisabled: {
-    backgroundColor: '#adb5bd', // Greyed out when disabled
-    cursor: 'not-allowed',
-    opacity: 0.7,
-  },
-  statusArea: {
-    textAlign: 'center',
-    minHeight: '20px',         // Reserve space for status messages
-    fontSize: '0.9em',
-    color: '#6c757d',
-    marginTop: '5px',
-  }
-};
 
-
+const fallbackBgColor = '#ffffff'; 
 function Chatbot() {
   // State variables
   const [messages, setMessages] = useState([]); // Stores chat messages { role: 'user'/'assistant', content: '...' }
@@ -491,80 +399,98 @@ const handleSendMessage = useCallback(async () => {
     }
   };
 
-  // JSX Rendering
   return (
-    <div style={styles.chatContainer}>
-      {/* Messages display area */}
-      <div style={styles.messagesArea} ref={messagesContainerRef}>
-        {/* Show loading indicator only when history is loading initially */}
+    // Use className for the main container
+    <div className={styles.chatContainer}>
+
+      {/* Use className for the messages area */}
+      <div className={styles.messagesArea} ref={messagesContainerRef} style={{
+          // Use the PUBLIC_URL environment variable provided by CRA/similar build tools
+          backgroundImage: `url(${process.env.PUBLIC_URL}/productivity-pattern.jpg)`,
+
+          // Explicitly set other background properties here too
+          backgroundColor: fallbackBgColor, // Fallback color
+          backgroundSize: 'auto',         // Or 'cover', 'contain', etc.
+          backgroundRepeat: 'repeat',     // Repeat the pattern
+          backgroundAttachment: 'local',  // Scroll with content
+        }}>
+
+        {/* Keep inline style for loading text as it doesn't use 'styles' object */}
         {isLoading && messages.length === 0 && (
           <p style={{ textAlign: 'center', color: '#888' }}>Loading chat history...</p>
         )}
-        {/* Map through messages and render bubbles */}
+
+        {/* Map through messages */}
         {messages.map((msg, idx) => (
           <div
-            key={idx} // Using index as key is okay if messages aren't reordered/deleted often
-            style={msg.role === 'user' ? styles.messageBubbleUser : styles.messageBubbleBot}
+            key={msg.id || idx} // Prefer unique ID if available
+            // Use className and combine classes conditionally
+            className={`
+              ${styles.messageBubbleBase || ''} {/* Optional: Add a base class for common bubble styles */}
+              ${msg.role === 'user' ? styles.messageBubbleUser : styles.messageBubbleBot}
+            `}
           >
             {msg.content}
           </div>
         ))}
-        {/* The ref is now on the container itself, no need for an empty div at the end */}
       </div>
 
-      {/* Status area for displaying recording/loading/error messages */}
-      <div style={styles.statusArea}>
+      {/* Use className for the status area */}
+      <div className={styles.statusArea}>
         {isRecording && "Recording audio..."}
-        {/* Show thinking only when sending/processing, not during initial history load */}
         {isLoading && !isRecording && messages.length > 0 && "Assistant is thinking..."}
-        {/* Display error message if any */}
+        {/* Keep inline style for error text as it doesn't use 'styles' object */}
         {error && <span style={{ color: '#dc3545', fontWeight: 'bold' }}>Error: {error}</span>}
       </div>
 
-      {/* Input area with text field and buttons */}
-      <div style={styles.inputArea}>
+      {/* Use className for the input area */}
+      <div className={styles.inputArea}>
         <input
           type="text"
           value={inputText}
           onChange={e => setInputText(e.target.value)}
-          onKeyPress={handleKeyPress} // Handle Enter key press
-          style={styles.inputField}
+          onKeyPress={handleKeyPress}
+          // Use className for the input field
+          className={styles.inputField}
           placeholder="Ask something or record audio..."
-          disabled={isLoading || isRecording} // Disable input when loading or recording
+          disabled={isLoading || isRecording}
           aria-label="Chat input"
         />
-        {/* Record/Stop Button */}
+
+        {/* Record/Stop Button - Use className and combine conditional classes */}
         <button
           onClick={isRecording ? handleStopRecording : handleStartRecording}
-          style={{
-            ...styles.button,
-            ...(isRecording ? styles.recordButtonRecording : styles.recordButton), // Dynamic style for recording state
-            ...(isLoading && !isRecording ? styles.buttonDisabled : {}) // Disable visually if loading (but not recording)
-          }}
-          disabled={isLoading && !isRecording} // Disable functionality if loading (but not recording)
+          // Combine class names using template literals
+          className={`
+            ${styles.button}
+            ${isRecording ? styles.recordButtonRecording : styles.recordButton}
+            ${(isLoading && !isRecording) ? styles.buttonDisabled : ''}
+          `}
+          disabled={isLoading && !isRecording}
           title={isRecording ? "Stop Recording" : "Start Recording Audio"}
           aria-label={isRecording ? "Stop Recording" : "Start Recording Audio"}
         >
-          🎤 {/* Microphone icon */}
+          🎤 {/* Keep original emoji */}
         </button>
-        {/* Send Button */}
+
+        {/* Send Button - Use className and combine conditional classes */}
         <button
           onClick={handleSendMessage}
-          style={{
-            ...styles.button,
-            // Disable visually if loading, recording, or input is empty
-            ...(isLoading || isRecording || !inputText.trim() ? styles.buttonDisabled : {})
-          }}
-          // Disable functionality if loading, recording, or input is empty
+          // Combine class names using template literals
+          className={`
+            ${styles.button} ${styles.sendButton || ''} {/* Added optional sendButton class */}
+            ${(isLoading || isRecording || !inputText.trim()) ? styles.buttonDisabled : ''}
+          `}
           disabled={isLoading || isRecording || !inputText.trim()}
           title="Send Message"
           aria-label="Send Message"
         >
-          ➤ {/* Send icon */}
+          ➤ {/* Keep original emoji */}
         </button>
       </div>
     </div>
   );
 }
+
 
 export default Chatbot;

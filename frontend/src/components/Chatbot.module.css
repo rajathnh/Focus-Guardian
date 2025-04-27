@@ -1,0 +1,223 @@
+/* === Chatbot Theme: Serene Focus with Geometric Pattern BG (Chatbot.module.css) === */
+
+/* --- Variables --- */
+:root {
+  --bg-main: #fcfdfe;             /* Very light, almost white cool background */
+  --bg-messages: #ffffff;         /* Pure white message area (used as fallback) */
+  --bg-input-area: #f8fafc;      /* Slightly distinct input area bg */
+  --border-color: #eaf0f6;       /* Soft, light blue-grey border */
+  --text-primary: #1a202c;        /* Very dark grey (almost black) */
+  --text-secondary: #4a5568;      /* Medium grey */
+  --text-placeholder: #a0aec0;     /* Lighter grey for placeholder */
+  --user-bubble-bg: #68D391;      /* Muted, calming green */
+  --user-bubble-text: #ffffff;     /* White text on user bubble */
+  --bot-bubble-bg: #f0f4f8;       /* Very light cool grey bot bubble */
+  --bot-bubble-text: var(--text-primary);
+  --accent-color: #38A169;       /* Darker green for actions/focus */
+  --danger-color: #e53e3e;       /* Error/Recording Red */
+  --shadow-color: rgba(110, 130, 160, 0.1); /* Cool shadow color */
+  --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+                 Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+}
+
+/* --- Container & Layout --- */
+.chatContainer {
+  font-family: var(--font-family);
+  border: 1px solid var(--border-color);
+  border-radius: 16px; /* Softer, larger radius */
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-main);
+  box-shadow: 0 5px 20px var(--shadow-color); /* Softer, slightly larger shadow */
+  overflow: hidden;
+}
+
+/* --- Messages Area --- */
+.messagesArea {
+  flex-grow: 1;
+  height: 400px; /* Adjust height as needed */
+  overflow-y: auto;
+  padding: 24px 20px; /* Increased padding */
+  display: flex;
+  flex-direction: column;
+  gap: 14px; /* Increased gap between bubbles */
+  position: relative; /* Needed for layering context */
+
+  /* --- Geometric Pattern Background --- */
+  background-color: var(--bg-messages); /* Keep fallback color */
+  background-size: auto;
+  background-repeat: repeat;
+  background-attachment: local;     /* CRUCIAL: Scrolls with content */
+  /* --- End Background --- */
+}
+
+/* Custom Scrollbar */
+.messagesArea::-webkit-scrollbar { width: 7px; }
+.messagesArea::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+.messagesArea::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 4px; }
+.messagesArea::-webkit-scrollbar-thumb:hover { background: #a0aec0; }
+
+/* --- Message Bubbles --- */
+.messageBubble { /* Base styles applied to both */
+  padding: 12px 18px; /* Generous padding */
+  max-width: 80%;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  line-height: 1.5; /* Improved readability */
+  border-radius: 20px; /* Softly rounded */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04); /* Very subtle shadow */
+  animation: fadeIn 0.3s ease-out; /* Simple fade-in */
+  position: relative; /* Ensure they stack above background */
+  z-index: 1;         /* Layer above background */
+}
+
+.messageBubbleUser {
+  /* --- Copied styles from .messageBubble --- */
+  padding: 12px 18px;          /* Copied */
+  max-width: 80%;             /* Copied */
+  word-wrap: break-word;      /* Copied */
+  white-space: pre-wrap;      /* Copied */
+  line-height: 1.5;           /* Copied */
+  border-radius: 20px;        /* Copied - Base radius */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04); /* Copied */
+  animation: fadeIn 0.3s ease-out; /* Copied */
+  position: relative;           /* Copied */
+  z-index: 1;                 /* Copied */
+  /* --- End Copied styles --- */
+
+  /* --- Specific User styles --- */
+  align-self: flex-end;
+  background-color: var(--user-bubble-bg); /* Opaque background */
+  color: var(--user-bubble-text);
+  /* Override base radius for the tail */
+  border-bottom-right-radius: 6px;
+}
+
+.messageBubbleBot {
+  /* --- Copied styles from .messageBubble --- */
+  padding: 12px 18px;          /* Copied */
+  max-width: 80%;             /* Copied */
+  word-wrap: break-word;      /* Copied */
+  white-space: pre-wrap;      /* Copied */
+  line-height: 1.5;           /* Copied */
+  border-radius: 20px;        /* Copied - Base radius */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04); /* Copied */
+  animation: fadeIn 0.3s ease-out; /* Copied */
+  position: relative;           /* Copied */
+  z-index: 1;                 /* Copied */
+  /* --- End Copied styles --- */
+
+  /* --- Specific Bot styles --- */
+  align-self: flex-start;
+  background-color: var(--bot-bubble-bg); /* Opaque background */
+  color: var(--bot-bubble-text);
+  /* Override base radius for the tail */
+  border-bottom-left-radius: 6px;
+}
+/* --- Status Area --- */
+.statusArea {
+  text-align: center;
+  min-height: 26px;
+  padding: 8px 15px;
+  font-size: 0.9em;
+  color: var(--text-secondary);
+  background-color: var(--bg-input-area); /* Match input area bg */
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color); /* Add border below too */
+}
+
+.errorMessage {
+  color: var(--danger-color);
+  font-weight: 500;
+}
+
+/* --- Input Area --- */
+.inputArea {
+  display: flex;
+  align-items: center;
+  padding: 15px 20px; /* Increased padding */
+  background-color: var(--bg-input-area);
+  gap: 12px;
+}
+
+.inputField {
+  flex-grow: 1;
+  padding: 12px 20px; /* Roomy padding */
+  border: 1px solid #d1d9e3; /* Slightly darker than main border */
+  border-radius: 24px; /* More rounded */
+  font-size: 1rem;
+  background-color: var(--bg-messages); /* White input field */
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.inputField:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(56, 161, 105, 0.2); /* Accent color glow */
+}
+.inputField::placeholder {
+  color: var(--text-placeholder);
+}
+.inputField:disabled {
+  background-color: #f1f5f9;
+  cursor: not-allowed;
+}
+
+/* --- Buttons --- */
+.button {
+  padding: 0;
+  cursor: pointer;
+  border: none;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 1.1rem; /* Slightly smaller icon/emoji size */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px; /* Slightly larger buttons */
+  height: 44px;
+  flex-shrink: 0;
+  transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+}
+.button:hover:not(:disabled) {
+  transform: translateY(-1px); /* Subtle lift on hover */
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+}
+.button:active:not(:disabled) {
+  transform: translateY(0px); /* Press down effect */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* Specific button styles */
+.recordButton {
+  background-color: var(--text-secondary); /* Use secondary text grey */
+}
+.recordButton:hover:not(:disabled) { background-color: #2d3748; } /* Darker grey */
+
+.recordButtonRecording {
+  background-color: var(--danger-color);
+}
+.recordButtonRecording:hover:not(:disabled) { background-color: #c53030; } /* Darker red */
+
+.sendButton {
+  background-color: var(--accent-color); /* Use accent green */
+}
+.sendButton:hover:not(:disabled) { background-color: #2f855a; } /* Darker green */
+
+.buttonDisabled {
+  background-color: #cbd5e0; /* Lighter disabled grey */
+  cursor: not-allowed;
+  opacity: 0.7;
+  color: #f8fafc;
+  transform: none !important; /* Disable hover/active effects */
+  box-shadow: none !important;
+}
+
+/* --- Animation --- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
