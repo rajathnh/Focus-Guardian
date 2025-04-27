@@ -443,7 +443,7 @@ function SessionHistoryPage() {
                                   <div className="cell actions">Details</div>
                                 </div>
                                 {/* Data Rows - Mapped from currentHistoryItems */}
-                                {currentHistoryItems.map(session => { // Step C change applied
+                                {currentHistoryItems.map(session => { // Using currentHistoryItems for pagination
                                   const isExpanded = expandedSessionId === session._id;
                                   const topAppEntry = Object.entries(session.appUsage || {}).sort(([, a], [, b]) => b - a)[0];
                                   const topAppName = topAppEntry ? topAppEntry[0].replace(/_/g, '.') : 'N/A';
@@ -506,22 +506,22 @@ function SessionHistoryPage() {
                               </div> {/* End flex-table */}
                             </div> {/* End table-container */}
 
-                            {/* --- Pagination Controls (STEP D - Placed after table container) --- */}
+                            {/* --- Pagination Controls --- */}
                             {history.length > itemsPerPage && ( // Only show if more items than fit on one page
                                 <div className="pagination-controls">
-                                <button
+                                  <button
                                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} // Go back
                                     disabled={currentPage === 1 || isLoading} // Disable on first page
-                                >
-                                    {'<'} Previous {/* Corrected HTML entity */}
-                                </button>
-                                <span> Page {currentPage} of {totalPages} </span>
-                                <button
+                                  >
+                                    {'<'} Previous
+                                  </button>
+                                  <span> Page {currentPage} of {totalPages} </span>
+                                  <button
                                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} // Go next
                                     disabled={currentPage === totalPages || isLoading} // Disable on last page
-                                >
-                                    Next {'>'} {/* Corrected HTML entity */}
-                                </button>
+                                  >
+                                    Next {'>'}
+                                  </button>
                                 </div>
                             )}
                             {/* --- END Pagination Controls --- */}
