@@ -120,7 +120,7 @@ const styles = {
     detailButtonCell: { padding: '8px', flexBasis: '80px', flexGrow: 0, textAlign: 'center', alignItems: 'center', borderRight: 'none', display: 'flex', justifyContent: 'center' }, // Centering button
     detailButton: { padding: 0, cursor: 'pointer', border: '1px solid #ccc', background: '#eee', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '24px', width: '24px', fontSize: '14px', lineHeight: '1' },
     trDetailDiv: { background: '#f8f8ff', borderBottom: '1px solid #ccc', animation: 'fadeInDetail 0.3s ease-out' },
-    detailHeading: { marginTop: 0, textAlign: 'center', borderBottom: '1px solid #ccc', paddingBottom: '5px', fontWeight: '500', marginBottom: '10px' },
+    detailHeading: { marginTop: 0, textAlign: 'center', borderBottom: '1px solid #ccc', paddingBottom: '5px', fontWeight: '800', marginBottom: '10px' },
     errorText: { color: 'orange', textAlign: 'center', padding: '20px', gridColumn: '1 / -1' }
 };
 
