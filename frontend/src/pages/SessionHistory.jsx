@@ -387,14 +387,14 @@ function SessionHistoryPage() {
                       ? <div className="loading-error">Focus Time/Percent Chart Error</div>
                       : (
                         <>
-                          <div className="chart-item"><h3>Daily Focus Time</h3><DailyFocusTimeChart dailyData={dailyData} options={commonBarChartOptions} formatDateShort={formatDateShort} /></div>
-                          <div className="chart-item"><h3>Daily Focus Percentage</h3><DailyFocusPercentChart dailyData={dailyData} options={percentChartOptions} formatDateShort={formatDateShort} /></div>
+                          <div className="chart-item"><DailyFocusTimeChart dailyData={dailyData} options={commonBarChartOptions} formatDateShort={formatDateShort} /></div>
+                          <div className="chart-item"><DailyFocusPercentChart dailyData={dailyData} options={percentChartOptions} formatDateShort={formatDateShort} /></div>
                         </>
                       )
                     }
                     {dailyAppError
                       ? <div className="loading-error">Daily App Usage Chart Error</div>
-                      : <div className="chart-item full-width"><h3>Daily App Usage Distribution</h3><DailyAppUsagePieChart dailyAppStats={dailyAppStats} options={pieChartOptions} getRandomColor={getRandomColor} /></div>
+                      : <div className="chart-item full-width"><DailyAppUsagePieChart dailyAppStats={dailyAppStats} options={pieChartOptions} getRandomColor={getRandomColor} /></div>
                     }
                   </div>
                 </section>
@@ -406,8 +406,8 @@ function SessionHistoryPage() {
                     ? <div className="loading-error">Trend Chart Error</div>
                     : (
                       <div className="chart-grid">
-                        <div className="chart-item"><h3>Focus % Per Session</h3><SessionFocusTrendChart history={history} options={focusPercentLineOptions} /></div>
-                        <div className="chart-item"><h3>Session Duration</h3><SessionDurationChart history={history} options={commonBarChartOptions} /></div>
+                        <div className="chart-item"><SessionFocusTrendChart history={history} options={focusPercentLineOptions} /></div>
+                        <div className="chart-item"><SessionDurationChart history={history} options={commonBarChartOptions} /></div>
                       </div>
                     )
                   }

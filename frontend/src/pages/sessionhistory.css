@@ -18,7 +18,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .session-history-header h1 {
@@ -61,7 +61,7 @@
 .chart-grid {
   display: grid;
   gap: 1.5rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 /* Daily Analysis */
@@ -116,7 +116,7 @@
 /* Detailed Session Log Table */
 .detailed-log-section .table-container {
   overflow-x: auto;
-  background: white;
+  background: linear-gradient(10deg, #a0bae1 0%, #aefbda 100%);
   border-radius: 12px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.08);
   padding: 1rem;
@@ -129,9 +129,10 @@
 .flex-header, .flex-row {
   display: flex;
   align-items: center;
+  padding: 0 1rem;
 }
 .flex-header {
-  background: var(--clr-bg, #e9fdee);
+  background: var(--clr-bg, #bef3cb);
   border-bottom: 2px solid var(--clr-secondary, #7EC8A5);
 }
 .flex-header .cell {
@@ -144,7 +145,10 @@
   border-bottom: 1px solid #eee;
 }
 .flex-row:nth-child(even) {
-  background: #fafcfb;
+  background: linear-gradient(10deg, #d7e2f2 0%, #d4ede2 100%);
+}
+.flex-row:nth-child(odd) {
+  background: #f5f9fc;
 }
 .flex-row .cell {
   flex: 1;
@@ -185,4 +189,303 @@
 @keyframes fadeInDetail {
   0%   { opacity: 0; max-height: 0; overflow: hidden; }
   100% { opacity: 1; max-height: 500px; overflow: hidden; }
+}
+
+/* sessionhistory.css */
+.session-history-page {
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(135deg, #F6F9FF 0%, #F1F5FE 100%);
+  color: #2D4357;
+  min-height: 100vh;
+}
+
+.session-history-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+}
+
+/* Header - Glassmorphism Effect */
+.session-history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 1.5rem 2rem;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.05);
+  border: 1px solid rgba(255,255,255,0.3);
+}
+
+.session-history-header h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  background: linear-gradient(45deg, #2D4357 0%, #5B7DB1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.back-button {
+  background: linear-gradient(45deg, #5B7DB1 0%, #7EC8A5 100%);
+  color: white;
+  padding: 0.8rem 1.8rem;
+  border-radius: 12px;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 6px rgba(92, 125, 177, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+.back-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(92, 125, 177, 0.25);
+}
+
+/* Section Headings - Modern Gradient */
+.session-section-heading {
+  font-size: 2.2rem;
+  margin: 1rem 0 1.5rem;
+  position: relative;
+  padding-left: 1.5rem;
+  background: linear-gradient(90deg, #3d5c8b 0%, #408a67 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.session-section-heading::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 80%;
+  background: linear-gradient(180deg, #5B7DB1 0%, #7EC8A5 100%);
+  border-radius: 4px;
+}
+
+/* Chart Grid - Neumorphic Cards */
+.chart-grid {
+  display: grid;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.chart-item {
+  background: linear-gradient(10deg, #d6e5fb 0%, #eaf9f2 50%);
+  padding: 2rem;
+  border-radius: 24px;
+  box-shadow: 0 18px 32px rgba(41, 41, 41, 0.8);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 3px solid rgba(150, 241, 218, 0.4);
+}
+.chart-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.1);
+}
+
+.chart-item h3 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: #2D4357;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.chart-item h3::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background: #7EC8A5;
+  border-radius: 50%;
+}
+
+/* Detailed Log Section - Modern Table */
+.detailed-log-section .table-container {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.05);
+  padding: 1.5rem;
+  backdrop-filter: blur(12px);
+}
+
+.flex-header {
+  background: linear-gradient(90deg, #F6F9FF 0%, #EBF2FF 100%);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+
+.flex-header .cell {
+  font-weight: 700;
+  color: #5B7DB1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.9rem;
+}
+
+.flex-row {
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  margin: 0.5rem 0;
+  padding: 0.5rem;
+}
+.flex-row:hover {
+  background: rgba(83, 158, 123, 0.05);
+  transform: translateX(8px);
+}
+
+/* Detail Expansion - Animated Card */
+.detail-row {
+  background: linear-gradient(135deg, rgba(133, 155, 199, 0.6) 0%, rgba(171, 196, 241, 0.4) 100%);
+  border-radius: 16px;
+  margin: 1rem 0;
+  animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes scaleIn {
+  0% { transform: scaleY(0); opacity: 0 }
+  100% { transform: scaleY(1); opacity: 1 }
+}
+
+/* Loading States - Modern Spinner */
+.loading-indicator {
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+  font-size: 1.2rem;
+  color: #5B7DB1;
+}
+
+.loading-indicator::after {
+  content: '';
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(91, 125, 177, 0.2);
+  border-top-color: #5B7DB1;
+  border-radius: 50%;
+  margin-left: 1rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Error States - Modern Alert */
+.loading-error {
+  background: rgba(255, 210, 210, 0.4);
+  backdrop-filter: blur(8px);
+  color: #D8000C;
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid rgba(216, 0, 12, 0.15);
+  margin: 2rem 0;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Daily Analysis Section */
+.daily-analysis-section .chart-grid {
+  grid-template-columns: 2fr 2fr 2fr; /* New 3-column layout */
+  grid-template-areas: 
+    "focus-time focus-percent app-usage";
+}
+
+@media (max-width: 1200px) {
+  .daily-analysis-section .chart-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: 
+      "focus-time focus-percent"
+      "app-usage app-usage";
+  }
+}
+
+@media (max-width: 768px) {
+  .daily-analysis-section .chart-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas: 
+      "focus-time"
+      "focus-percent"
+      "app-usage";
+  }
+}
+
+/* Assign grid areas */
+.daily-analysis-section .chart-item:nth-child(1) {
+  grid-area: focus-time;
+}
+.daily-analysis-section .chart-item:nth-child(2) {
+  grid-area: focus-percent;
+}
+.daily-analysis-section .chart-item:nth-child(3) {
+  grid-area: app-usage;
+}
+
+/* Adjust chart item sizes */
+.chart-item.large-chart {
+  min-height: 400px;
+  padding: 2rem;
+}
+
+.chart-item.compact-chart {
+  min-height: 300px;
+  padding: 1.5rem;
+}
+
+/* Specifically target app usage chart */
+.daily-app-usage-chart .chart-container {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.daily-analysis-section{
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  padding-top: 2rem;
+}
+
+.session-trends-section{
+  margin-top: 1rem;
+  padding-top: 2rem;
+
+}
+
+
+/* Adjust Start Time column width */
+.flex-header .cell:nth-child(1), 
+.flex-row .cell:nth-child(1) { /* Start Time */
+  flex: 0 1 22%; /* Increased from 18% */
+}
+
+/* Compensate by reducing other columns */
+.flex-header .cell:nth-child(6), 
+.flex-row .cell:nth-child(6) { /* Top App */
+  flex: 0 1 24%; /* Reduced from 28% */
+}
+
+.flex-header .cell:nth-child(4), 
+.flex-row .cell:nth-child(4) { /* Focus Time */
+  flex: 0 1 11%; /* Reduced from 12% */
+}
+
+.flex-header .cell:nth-child(5), 
+.flex-row .cell:nth-child(5) { /* Distraction */
+  flex: 0 1 11%; /* Reduced from 12% */
+}
+
+.detailed-log-section{
+  padding-top: 2rem;
+}
+
+.flex-header .cell {
+  justify-content: center;
+  text-align: center;
 }
