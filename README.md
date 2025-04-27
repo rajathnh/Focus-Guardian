@@ -85,7 +85,7 @@ Highlight the most important features of your project:
 
 ## 📽️ Demo & Deliverables
 
-- **Demo Video Link:** `[User Input Required: Paste YouTube or Loom link here]`
+- **Demo Video Link:** `[https://youtu.be/7wIukNQxdYk]`
 - **Pitch Deck / PPT Link:** `[https://drive.google.com/file/d/1DAJmVCrJRfzepIArf9m2PKD9NkQZoa-7/view?usp=sharing]`
 
 ---
