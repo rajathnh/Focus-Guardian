@@ -1,58 +1,62 @@
-// routes/sessionRoutes.js
-const express = require("express");
+// backend/routes/sessionRoutes.js
+const express = require("express"); // Use require
 const router = express.Router();
 
+// Use require for controller functions
 const {
     startSession,
-    processSessionData,
+    processSessionData, // Keep the route defined, controller is stubbed
     stopSession,
     getCurrentSession,
     getSessionHistory,
     getUserStats,
     getSessionById,
     getDailyAnalysis,
-    getDailyAppUsage, // Assuming getUserStats remains in sessionController for now
-} = require("../controllers/sessionController");
+    getDailyAppUsage,
+    updateFocusStatus, // Endpoint for frontend webcam focus updates
+    getLatestActivity // <-- Endpoint for frontend to poll screen activity
+} = require("../controllers/sessionController.js"); // Use require
 
-const protect = require("../middleware/authMiddleware"); // Import authentication middleware
+const protect = require("../middleware/authMiddleware.js"); // Use require
 
-// Apply authentication middleware to all session routes
-// All actions related to sessions require a logged-in user
+// Apply authentication middleware to all session routes below this line
 router.use(protect);
 
-// @route   POST /api/sessions/start
-// @desc    Start a new focus session for the logged-in user
-// @access  Private
+// --- Define Routes ---
+
+// Start a new session
 router.post("/start", startSession);
 
-// @route   POST /api/sessions/data/:sessionId
-// @desc    Process a data point (webcam + screen image) for a specific session
-// @access  Private
+// (DEPRECATED/REPURPOSED) Process data point (previously image, now placeholder)
 router.post("/data/:sessionId", processSessionData);
 
-// @route   POST /api/sessions/:id/stop
-// @desc    Stop (end) a specific focus session
-// @access  Private
-router.post("/:id/stop", stopSession); // Using :id to match stopSession's req.params.id
+// Receive focus status update from frontend focus detector
+router.post("/focus/:sessionId", updateFocusStatus);
 
-// @route   GET /api/sessions/current
-// @desc    Get the currently active session for the logged-in user (if any)
-// @access  Private
+// Get the last detected app/activity for an active session (for polling)
+router.get("/:sessionId/latest-activity", getLatestActivity); // <-- NEW ROUTE
+
+// Stop (end) a specific focus session
+router.post("/:id/stop", stopSession);
+
+// Get the currently active session for the logged-in user
 router.get("/current", getCurrentSession);
 
-// @route   GET /api/sessions/history
-// @desc    Get the history of all completed sessions for the logged-in user
-// @access  Private
+// Get the history of all sessions for the logged-in user
 router.get("/history", getSessionHistory);
 
-// @route   GET /api/sessions/stats
-// @desc    Get the aggregated lifetime stats for the logged-in user
-// @access  Private
-// Note: You might move the *logic* for this into the userController if preferred,
-// but the route can live here if it's primarily session/analytics related data.
+// Get aggregated lifetime stats for the logged-in user
 router.get("/stats", getUserStats);
-router.get('/daily/apps', protect, getDailyAppUsage);
-router.get('/daily', protect, getDailyAnalysis);
+
+// Get aggregated app usage time over a period
+router.get('/daily/apps', getDailyAppUsage);
+
+// Get aggregated focus/distraction stats per day over a period
+router.get('/daily', getDailyAnalysis);
+
+// Get details of a specific session by its ID
 router.get("/:id", getSessionById);
 
+
+// Use module.exports for CommonJS
 module.exports = router;

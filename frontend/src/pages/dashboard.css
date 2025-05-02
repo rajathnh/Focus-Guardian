@@ -407,3 +407,70 @@
   position: relative;
   z-index: 1;
 }
+
+/* frontend/src/pages/dashboard.css */
+
+/* ... other existing styles ... */
+
+.analysis-card {
+  background-color: #fff;
+  padding: 20px 25px; /* Adjust padding as needed */
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  margin-bottom: 25px;
+}
+
+.analysis-card h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+  font-weight: 600;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 10px;
+}
+
+/* Add relative positioning to this wrapper */
+.analysis-content-wrapper {
+  position: relative;
+  padding-bottom: 25px; /* Add padding at the bottom to make space for the label */
+}
+
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); /* Responsive grid */
+  gap: 15px; /* Space between grid items */
+  /* Removed position: relative; from here if it existed */
+}
+
+.analysis-item {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 5px;
+  border: 1px solid #e9ecef;
+}
+
+.analysis-item strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #555;
+  font-weight: 600;
+  font-size: 0.9em;
+}
+
+/* Style for the reason text next to focus status */
+.distraction-reason {
+    font-size: 0.9em;
+    color: #777;
+    margin-left: 5px;
+}
+
+/* Style for the absolutely positioned detection source label */
+.detection-source-label {
+  position: absolute;
+  bottom: 5px;  /* Position from the bottom of the wrapper */
+  right: 10px; /* Position from the right of the wrapper */
+  font-size: 0.7em; /* Make font smaller */
+  color: #888;     /* Grey color */
+  font-style: italic;
+}
+
